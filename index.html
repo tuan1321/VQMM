@@ -10,22 +10,25 @@
 <body>
   <div class="main-container">
     <h1 class="lds-title">LUCKY DRAW SOFTWARE</h1>
-    <div class="prize-section">
-      <div class="medal">3</div>
-      <div class="winner-name">Toni C. Chandra</div>
+    <div class="draw-controls">
+      <textarea id="nameInput" class="input-names" placeholder="Nhập từng người (mỗi dòng một tên hoặc mã - tên)"></textarea>
+      <div class="draw-options">
+        <input type="text" id="prizeName" class="input-prize" placeholder="Tên giải thưởng (vd: Giải Nhất)">
+        <input type="number" id="winnerCount" class="input-count" placeholder="Số người trúng" min="1">
+        <button id="drawBtn" class="btn main-btn">✨ QUAY!</button>
+      </div>
     </div>
-    <div class="number-row">
-      <div class="number-box">7</div>
-      <div class="number-box">9</div>
-      <div class="number-box">1</div>
-      <div class="number-box">1</div>
-      <div class="number-box">9</div>
-      <div class="number-box">8</div>
+    <div class="number-row" id="numberRow" style="display:none;"></div>
+    <div class="prize-label" id="prizeLabel" style="display:none;"></div>
+    <div class="winner-popup hidden" id="winnerPopup"></div>
+    <div class="button-row" id="resultActions" style="display:none;">
+      <button class="btn confirm" id="confirmBtn">XÁC NHẬN</button>
+      <button class="btn retry" id="retryBtn">QUAY LẠI</button>
     </div>
-    <div class="prize-label">GIẢI BA</div>
-    <div class="button-row">
-      <button class="btn confirm">XÁC NHẬN</button>
-      <button class="btn retry">QUAY LẠI</button>
+    <div class="history-section">
+      <h2>Lịch sử quay số</h2>
+      <ul id="historyList"></ul>
+      <button class="btn clear-history" id="clearHistoryBtn">Xóa lịch sử</button>
     </div>
     <div class="footer-menu">
       <span>Kết quả</span>
