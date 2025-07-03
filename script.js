@@ -1,28 +1,63 @@
-function startDraw() {
-  const names = document.getElementById("nameInput").value.trim().split('\n');
+const drawBtn = document.getElementById("drawBtn");
+const spinner = document.getElementById("spinner");
+const resultBox = document.getElementById("resultBox");
+
+drawBtn.addEventListener("click", () => {
+  const raw = document.getElementById("nameInput").value.trim();
   const prize = document.getElementById("prizeName").value;
   const count = parseInt(document.getElementById("winnerCount").value);
-  if (names.length === 0 || prize === "" || isNaN(count)) return alert("Vui lòng nhập đầy đủ!");
 
-  const shuffled = names.sort(() => 0.5 - Math.random());
-  const winners = shuffled.slice(0, count);
-  const resultBox = document.getElementById("resultBox");
+  if (!raw || !prize || isNaN(count)) {
+    alert("Vui lòng nhập đầy đủ thông tin!");
+    return;
+  }
 
-  const result = {
-    prize: prize,
-    winners: winners
-  };
+  const entries = raw.split("\n").map(line => {
+    const [code, name] = line.split(" - ");
+    return { code: code?.trim(), name: name?.trim() };
+  }).filter(e => e.code && e.name);
+
+  if (entries.length < count) {
+    alert("Không đủ người để quay!");
+    return;
+  }
+
+  let duration = Math.random() * 5000 + 5000; // 5–10s
+  let interval = 100;
+  let elapsed = 0;
+
+  const shuffled = [...entries].sort(() => 0.5 - Math.random());
+  let i = 0;
+
+  const spin = setInterval(() => {
+    const current = shuffled[i % shuffled.length];
+    spinner.textContent = `${current.code} – ${current.name}`;
+    i++;
+    elapsed += interval;
+    if (elapsed >= duration) {
+      clearInterval(spin);
+      const winners = shuffled.slice(0, count);
+      showResult(prize, winners);
+    }
+  }, interval);
+});
+
+function showResult(prize, winners) {
+  let html = `<h2>🎁 ${prize}</h2><ul>`;
+  winners.forEach(w => {
+    html += `<li>${w.code} – ${w.name}</li>`;
+  });
+  html += `</ul>`;
+  resultBox.innerHTML += html;
 
   // Lưu vào localStorage
-  let history = JSON.parse(localStorage.getItem("drawResults") || "[]");
-  history.push(result);
+  const history = JSON.parse(localStorage.getItem("drawResults") || "[]");
+  history.push({ prize, winners });
   localStorage.setItem("drawResults", JSON.stringify(history));
-
-  resultBox.innerHTML += `<h2>${prize}</h2><ul>` +
-    winners.map(name => `<li>${name}</li>`).join('') + `</ul>`;
 }
 
 function clearResults() {
   localStorage.removeItem("drawResults");
-  document.getElementById("resultBox").innerHTML = "";
+  resultBox.innerHTML = "";
+  spinner.textContent = "";
 }
