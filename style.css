@@ -26,40 +26,87 @@ body {
   text-align: center;
 }
 
-.prize-section {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  margin-bottom: 18px;
+.draw-controls {
+  width: 100%;
+  max-width: 520px;
+  background: rgba(34,34,68,0.85);
+  border-radius: 18px;
+  box-shadow: 0 4px 24px #0003;
+  padding: 24px 18px 18px 18px;
+  margin-bottom: 24px;
 }
 
-.medal {
-  width: 56px;
-  height: 56px;
-  background: radial-gradient(circle, #ffd700 60%, #ffb347 100%);
-  border-radius: 50%;
+.input-names {
+  width: 100%;
+  min-height: 70px;
+  border-radius: 10px;
+  border: none;
+  padding: 12px;
+  font-size: 1rem;
+  margin-bottom: 14px;
+  box-shadow: 0 2px 8px #0002;
+  resize: vertical;
+  background: #2a2542;
   color: #fff;
-  font-size: 2rem;
-  font-weight: 700;
+}
+
+.draw-options {
   display: flex;
-  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
   justify-content: center;
-  box-shadow: 0 0 16px 4px #ffd70055, 0 2px 8px #0005;
-  margin-bottom: 10px;
-  border: 4px solid #fff3;
-  position: relative;
-  z-index: 2;
-  text-shadow: 0 2px 8px #a83279;
 }
 
-.winner-name {
-  font-size: 2.1rem;
+.input-prize, .input-count {
+  border-radius: 8px;
+  border: none;
+  padding: 8px 12px;
+  font-size: 1rem;
+  width: 140px;
+  box-shadow: 0 2px 8px #0001;
+  background: #fff;
+  color: #222;
+}
+
+.btn {
+  border: none;
+  border-radius: 10px;
+  font-size: 1.1rem;
   font-weight: 700;
+  padding: 10px 28px;
+  cursor: pointer;
+  box-shadow: 0 2px 12px #0003;
+  transition: background 0.2s, transform 0.2s;
+}
+
+.main-btn, .confirm {
+  background: linear-gradient(90deg, #ffe066 0%, #ffd700 100%);
+  color: #222;
+}
+
+.main-btn:hover, .confirm:hover {
+  background: linear-gradient(90deg, #ffd700 0%, #ffe066 100%);
+  transform: translateY(-2px) scale(1.04);
+}
+
+.retry {
+  background: #4d4fa7;
   color: #fff;
-  opacity: 0.7;
-  text-shadow: 0 2px 16px #000a, 0 0px 8px #fff8;
-  margin-bottom: 8px;
-  letter-spacing: 1px;
+}
+
+.retry:hover {
+  background: #35367a;
+  transform: translateY(-2px) scale(1.04);
+}
+
+.clear-history {
+  background: linear-gradient(90deg, #ff5858 0%, #ffb347 100%);
+  color: #fff;
+  margin-top: 10px;
+}
+
+.clear-history:hover {
+  background: linear-gradient(90deg, #ffb347 0%, #ff5858 100%);
 }
 
 .number-row {
@@ -70,23 +117,19 @@ body {
 }
 
 .number-box {
-  width: 110px;
-  height: 150px;
+  width: 90px;
+  height: 120px;
   background: #463c6a;
   border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 5rem;
+  font-size: 3.5rem;
   font-weight: 700;
   color: #fff;
   box-shadow: 0 2px 16px #0006, 0 0 0 4px #ffd70055;
   border: 4px solid #fff2;
   transition: transform 0.2s;
-}
-
-.number-box:not(:last-child) {
-  margin-right: 0;
 }
 
 .prize-label {
@@ -102,6 +145,30 @@ body {
   letter-spacing: 1px;
 }
 
+.winner-popup {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(1);
+  background: linear-gradient(135deg, #fffbe6 0%, #ffe0e0 100%);
+  color: #a83279;
+  border-radius: 20px;
+  box-shadow: 0 8px 32px #0005;
+  padding: 36px 48px;
+  font-size: 2rem;
+  font-weight: 700;
+  z-index: 1000;
+  opacity: 1;
+  transition: opacity 0.3s, transform 0.3s;
+  text-align: center;
+}
+
+.winner-popup.hidden {
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, -50%) scale(0.8);
+}
+
 .button-row {
   display: flex;
   gap: 24px;
@@ -109,35 +176,35 @@ body {
   margin-bottom: 32px;
 }
 
-.btn {
-  border: none;
-  border-radius: 10px;
-  font-size: 1.3rem;
+.history-section {
+  width: 100%;
+  max-width: 520px;
+  background: rgba(34,34,68,0.7);
+  border-radius: 14px;
+  box-shadow: 0 2px 12px #0002;
+  padding: 18px 16px 10px 16px;
+  margin: 18px 0 18px 0;
+}
+
+.history-section h2 {
+  font-size: 1.1rem;
+  color: #ffd700;
+  margin: 0 0 10px 0;
   font-weight: 700;
-  padding: 16px 48px;
-  cursor: pointer;
-  box-shadow: 0 2px 12px #0003;
-  transition: background 0.2s, transform 0.2s;
 }
 
-.confirm {
-  background: linear-gradient(90deg, #ffe066 0%, #ffd700 100%);
-  color: #222;
-}
-
-.confirm:hover {
-  background: linear-gradient(90deg, #ffd700 0%, #ffe066 100%);
-  transform: translateY(-2px) scale(1.04);
-}
-
-.retry {
-  background: #4d4fa7;
+#historyList {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 8px 0;
   color: #fff;
+  font-size: 1rem;
 }
 
-.retry:hover {
-  background: #35367a;
-  transform: translateY(-2px) scale(1.04);
+#historyList li {
+  padding: 6px 0;
+  border-bottom: 1px solid #fff2;
+  opacity: 0.9;
 }
 
 .footer-menu {
@@ -159,9 +226,9 @@ body {
 
 @media (max-width: 900px) {
   .number-box {
-    width: 60px;
-    height: 80px;
-    font-size: 2.2rem;
+    width: 48px;
+    height: 60px;
+    font-size: 1.5rem;
   }
   .main-container {
     padding-top: 12px;
@@ -169,15 +236,16 @@ body {
   .lds-title {
     font-size: 1.3rem;
   }
-  .winner-name {
-    font-size: 1.1rem;
-  }
   .prize-label {
     font-size: 1rem;
     padding: 4px 12px;
   }
   .btn {
     font-size: 1rem;
-    padding: 10px 18px;
+    padding: 8px 12px;
+  }
+  .draw-controls, .history-section {
+    padding: 10px 4px 8px 4px;
+    max-width: 98vw;
   }
 }
