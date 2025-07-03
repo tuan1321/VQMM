@@ -3,27 +3,37 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Quay Số May Mắn</title>
+  <title>Lucky Draw Software</title>
   <link rel="stylesheet" href="style.css" />
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700;400&display=swap" rel="stylesheet">
 </head>
 <body>
-  <div class="container">
-    <h1 class="main-title">🎯 Vòng Quay May Mắn</h1>
-    <div class="input-section">
-      <textarea id="nameInput" class="input-names" placeholder="Nhập từng người (mã - tên hoặc chỉ tên)..."></textarea>
-      <div class="controls">
-        <input type="text" id="prizeName" class="input-prize" placeholder="Tên giải thưởng (vd: Giải Nhất)">
-        <input type="number" id="winnerCount" class="input-count" placeholder="Số người trúng">
-        <button id="drawBtn" class="btn main-btn">✨ QUAY!</button>
-      </div>
+  <div class="main-container">
+    <h1 class="lds-title">LUCKY DRAW SOFTWARE</h1>
+    <div class="prize-section">
+      <div class="medal">3</div>
+      <div class="winner-name">Toni C. Chandra</div>
     </div>
-    <div class="marquee">
-      <div id="spinner" class="blinker spinner-box">Sẵn sàng quay...</div>
+    <div class="number-row">
+      <div class="number-box">7</div>
+      <div class="number-box">9</div>
+      <div class="number-box">1</div>
+      <div class="number-box">1</div>
+      <div class="number-box">9</div>
+      <div class="number-box">8</div>
     </div>
-    <div id="popup" class="winner-popup hidden"></div>
-    <div id="resultBox" class="result-box"></div>
-    <button onclick="clearResults()" class="btn clearBtn">🗑 Xóa kết quả</button>
+    <div class="prize-label">GIẢI BA</div>
+    <div class="button-row">
+      <button class="btn confirm">XÁC NHẬN</button>
+      <button class="btn retry">QUAY LẠI</button>
+    </div>
+    <div class="footer-menu">
+      <span>Kết quả</span>
+      <span>Hướng dẫn</span>
+      <span>Phí sử dụng</span>
+      <span>Đăng nhập</span>
+      <span class="footer-icons">🎮 📷 ✉️ 🎵</span>
+    </div>
   </div>
   <!-- Âm thanh -->
   <audio id="cheer" src="https://cdn.pixabay.com/audio/2022/03/15/audio_dbe3d93c13.mp3" preload="auto"></audio>
