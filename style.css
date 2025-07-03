@@ -1,0 +1,22 @@
+body {
+  font-family: sans-serif;
+  background: #fdf6e3;
+  padding: 20px;
+  text-align: center;
+}
+textarea, input {
+  width: 80%;
+  margin: 10px auto;
+  padding: 10px;
+}
+button {
+  padding: 10px 20px;
+  margin: 10px;
+  background: #00aaff;
+  color: white;
+  border: none;
+  cursor: pointer;
+}
+#resultBox {
+  margin-top: 20px;
+}
