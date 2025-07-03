@@ -5,40 +5,32 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Quay Số May Mắn</title>
   <link rel="stylesheet" href="style.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700;400&display=swap" rel="stylesheet">
 </head>
 <body>
   <div class="container">
-    <h1>🎯 Vòng Quay May Mắn</h1>
-
-    <textarea id="nameInput" placeholder="Nhập từng người (mã - tên hoặc chỉ tên)..."></textarea>
-
-    <div class="controls">
-      <input type="text" id="prizeName" placeholder="Tên giải thưởng (vd: Giải Nhất)">
-      <input type="number" id="winnerCount" placeholder="Số người trúng">
-      <button id="drawBtn">✨ QUAY!</button>
+    <h1 class="main-title">🎯 Vòng Quay May Mắn</h1>
+    <div class="input-section">
+      <textarea id="nameInput" class="input-names" placeholder="Nhập từng người (mã - tên hoặc chỉ tên)..."></textarea>
+      <div class="controls">
+        <input type="text" id="prizeName" class="input-prize" placeholder="Tên giải thưởng (vd: Giải Nhất)">
+        <input type="number" id="winnerCount" class="input-count" placeholder="Số người trúng">
+        <button id="drawBtn" class="btn main-btn">✨ QUAY!</button>
+      </div>
     </div>
-
     <div class="marquee">
-      <div id="spinner" class="blinker">Sẵn sàng quay...</div>
+      <div id="spinner" class="blinker spinner-box">Sẵn sàng quay...</div>
     </div>
-
     <div id="popup" class="winner-popup hidden"></div>
-
-    <div id="resultBox"></div>
-
-    <button onclick="clearResults()" class="clearBtn">🗑 Xóa kết quả</button>
+    <div id="resultBox" class="result-box"></div>
+    <button onclick="clearResults()" class="btn clearBtn">🗑 Xóa kết quả</button>
   </div>
-
   <!-- Âm thanh -->
-  <audio id="cheer" src="https://cdn.pixabay.com/audio/2022/03/15/audio_dbe3d93c13.mp3"></audio>
-  <audio id="ting" src="https://cdn.pixabay.com/audio/2022/03/02/audio_59d63ad15a.mp3"></audio>
-
+  <audio id="cheer" src="https://cdn.pixabay.com/audio/2022/03/15/audio_dbe3d93c13.mp3" preload="auto"></audio>
+  <audio id="ting" src="https://cdn.pixabay.com/audio/2022/03/02/audio_59d63ad15a.mp3" preload="auto"></audio>
+  <audio id="spinMusic" src="https://cdn.pixabay.com/audio/2022/10/03/audio_dbee3da85b.mp3" preload="auto"></audio>
   <!-- Thư viện pháo giấy -->
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
   <script src="script.js"></script>
-<audio id="spinMusic" src="https://cdn.pixabay.com/audio/2022/10/03/audio_dbee3da85b.mp3" preload="auto"></audio>
-<audio id="cheer" src="https://cdn.pixabay.com/audio/2022/03/15/audio_dbe3d93c13.mp3" preload="auto"></audio>
-<audio id="ting" src="https://cdn.pixabay.com/audio/2022/03/02/audio_59d63ad15a.mp3" preload="auto"></audio>
-
 </body>
 </html>
