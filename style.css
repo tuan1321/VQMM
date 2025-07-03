@@ -1,53 +1,67 @@
 body {
-  background: linear-gradient(to right, #e0f7fa, #fffde7);
-  font-family: 'Segoe UI', sans-serif;
   margin: 0;
   padding: 0;
-  color: #333;
+  font-family: 'Segoe UI', sans-serif;
+  background: linear-gradient(to right, #0f2027, #203a43, #2c5364);
+  color: #fff;
+  height: 100vh;
+  overflow: hidden;
 }
 
-.container {
-  max-width: 700px;
-  margin: 40px auto;
+.overlay {
   padding: 20px;
-  background: white;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-  border-radius: 12px;
   text-align: center;
 }
 
 h1 {
-  color: #00695c;
-  margin-bottom: 20px;
+  margin-top: 10px;
+  font-size: 2.5em;
+  color: #ffeb3b;
 }
 
 textarea, input {
-  width: 90%;
+  width: 80%;
   padding: 10px;
-  margin: 10px 0;
-  border: 1px solid #ddd;
+  margin: 10px auto;
   border-radius: 8px;
+  border: none;
   font-size: 16px;
 }
 
+.controls {
+  margin: 20px 0;
+}
+
 button {
-  padding: 12px 20px;
-  font-size: 16px;
-  background: #26a69a;
+  padding: 12px 24px;
+  font-size: 18px;
+  background: #ff9800;
   color: white;
   border: none;
   border-radius: 8px;
   cursor: pointer;
-  transition: background 0.3s ease;
 }
 
 button:hover {
-  background: #00796b;
+  background: #f57c00;
+}
+
+.spinner {
+  font-size: 2em;
+  margin: 30px 0;
+  height: 60px;
+  line-height: 60px;
+  font-weight: bold;
+  animation: blink 0.3s infinite alternate;
+}
+
+@keyframes blink {
+  from { opacity: 1; }
+  to { opacity: 0.3; }
 }
 
 .results h2 {
-  margin-top: 30px;
-  color: #d84315;
+  color: #4caf50;
 }
 
 .results ul {
@@ -56,10 +70,11 @@ button:hover {
 }
 
 .results li {
-  padding: 5px 0;
-  font-weight: bold;
+  font-size: 1.2em;
+  margin: 5px 0;
 }
 
-.actions {
+.clearBtn {
   margin-top: 20px;
+  background: #e53935;
 }
