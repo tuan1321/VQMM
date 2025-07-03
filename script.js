@@ -1,9 +1,14 @@
 const drawBtn = document.getElementById("drawBtn");
-const nameInput = document.getElementById("nameInput");
-const prizeInput = document.getElementById("prizeName");
-const winnerCountInput = document.getElementById("winnerCount");
+const registerBtn = document.getElementById("registerBtn");
+const registerSection = document.getElementById("registerSection");
+const registerName = document.getElementById("registerName");
+const addBtn = document.getElementById("addBtn");
+const closeRegisterBtn = document.getElementById("closeRegisterBtn");
+const participantList = document.getElementById("participantList");
 const numberRow = document.getElementById("numberRow");
 const prizeLabel = document.getElementById("prizeLabel");
+const medal = document.getElementById("medal");
+const winnerName = document.getElementById("winnerName");
 const winnerPopup = document.getElementById("winnerPopup");
 const confirmBtn = document.getElementById("confirmBtn");
 const retryBtn = document.getElementById("retryBtn");
@@ -14,9 +19,64 @@ const cheer = document.getElementById("cheer");
 const ting = document.getElementById("ting");
 const spinMusic = document.getElementById("spinMusic");
 
+let participants = JSON.parse(localStorage.getItem("participants") || "[]");
 let currentWinners = [];
-let currentPrize = '';
 let spinning = false;
+let prize = prizeLabel.textContent || "GIẢI BA";
+let medalValue = medal.textContent || "3";
+
+function saveParticipants() {
+  localStorage.setItem("participants", JSON.stringify(participants));
+}
+
+function renderParticipants() {
+  participantList.innerHTML = participants.length
+    ? participants.map((p, idx) => `<span>${p.code} – ${p.name} <button onclick="removeParticipant(${idx})" style="background:none;border:none;color:#ffd700;cursor:pointer;">×</button></span>`).join('')
+    : '<span style="opacity:0.7;">Chưa có người tham gia</span>';
+}
+
+window.removeParticipant = function(idx) {
+  participants.splice(idx, 1);
+  saveParticipants();
+  renderParticipants();
+};
+
+addBtn.addEventListener('click', () => {
+  const val = registerName.value.trim();
+  if (!val) return;
+  let code, name;
+  if (val.includes("-")) {
+    [code, name] = val.split("-").map(s => s.trim());
+  } else {
+    code = String(Math.floor(100000 + Math.random() * 900000));
+    name = val;
+  }
+  if (!name) return;
+  participants.push({ code, name });
+  saveParticipants();
+  renderParticipants();
+  registerName.value = '';
+});
+
+registerBtn.addEventListener('click', () => {
+  registerSection.style.display = '';
+  renderParticipants();
+});
+
+closeRegisterBtn.addEventListener('click', () => {
+  registerSection.style.display = 'none';
+});
+
+function showNumbers(code) {
+  numberRow.innerHTML = '';
+  code = code.padStart(6, '0');
+  for (let i = 0; i < code.length; i++) {
+    const div = document.createElement('div');
+    div.className = 'number-box';
+    div.textContent = code[i];
+    numberRow.appendChild(div);
+  }
+}
 
 function renderHistory() {
   const history = JSON.parse(localStorage.getItem("drawResults") || "[]");
@@ -35,55 +95,26 @@ function showPopup(prize, winners) {
   }, 4000);
 }
 
-function showNumbers(winners) {
-  numberRow.innerHTML = '';
-  const code = winners[0].code.padStart(6, '0');
-  for (let i = 0; i < code.length; i++) {
-    const div = document.createElement('div');
-    div.className = 'number-box';
-    div.textContent = code[i];
-    numberRow.appendChild(div);
-  }
-  numberRow.style.display = '';
-}
-
 drawBtn.addEventListener("click", () => {
   if (spinning) return;
-  const raw = nameInput.value.trim();
-  const prize = prizeInput.value.trim();
-  const count = parseInt(winnerCountInput.value);
-  if (!raw || !prize || isNaN(count) || count < 1) {
-    alert("Vui lòng nhập đầy đủ thông tin!");
+  if (participants.length < 1) {
+    alert("Chưa có người tham gia!");
     return;
   }
-  let entries = raw.split("\n").map(line => {
-    if (line.includes("-")) {
-      const [code, name] = line.split("-");
-      return { code: code.trim(), name: name.trim() };
-    } else {
-      return { code: String(Math.floor(100000 + Math.random() * 900000)), name: line.trim() };
-    }
-  }).filter(e => e.name);
-  if (entries.length < count) {
-    alert("Không đủ người để quay!");
-    return;
-  }
+  let count = 1; // Có thể cho chọn số lượng nếu muốn
+  let entries = [...participants];
   entries = entries.sort(() => 0.5 - Math.random());
   let duration = Math.random() * 2000 + 2000;
   let elapsed = 0;
   let i = 0;
   let interval = 60;
   spinning = true;
-  numberRow.style.display = '';
-  prizeLabel.style.display = '';
-  prizeLabel.textContent = prize;
-  resultActions.style.display = 'none';
-  winnerPopup.classList.add('hidden');
   function spin() {
     spinMusic.currentTime = 0;
     spinMusic.play();
     const current = entries[i % entries.length];
-    showNumbers([current]);
+    showNumbers(current.code);
+    winnerName.textContent = current.name;
     i++;
     elapsed += interval;
     if (elapsed < duration) {
@@ -92,13 +123,17 @@ drawBtn.addEventListener("click", () => {
       spinMusic.pause();
       spinMusic.currentTime = 0;
       currentWinners = entries.slice(0, count);
-      currentPrize = prize;
-      showNumbers([currentWinners[0]]);
+      showNumbers(currentWinners[0].code);
+      winnerName.textContent = currentWinners[0].name;
       showPopup(prize, currentWinners);
       ting.play();
       cheer.play();
       confetti({ particleCount: 200, spread: 90, origin: { y: 0.6 } });
-      resultActions.style.display = '';
+      // Lưu lịch sử
+      let history = JSON.parse(localStorage.getItem("drawResults") || "[]");
+      history.push({ prize, winners: currentWinners });
+      localStorage.setItem("drawResults", JSON.stringify(history));
+      renderHistory();
       spinning = false;
     }
   }
@@ -108,7 +143,7 @@ drawBtn.addEventListener("click", () => {
 confirmBtn.addEventListener('click', () => {
   if (!currentWinners.length) return;
   let history = JSON.parse(localStorage.getItem("drawResults") || "[]");
-  history.push({ prize: currentPrize, winners: currentWinners });
+  history.push({ prize: prize, winners: currentWinners });
   localStorage.setItem("drawResults", JSON.stringify(history));
   renderHistory();
   numberRow.style.display = 'none';
@@ -132,5 +167,7 @@ clearHistoryBtn.addEventListener('click', () => {
 });
 
 window.addEventListener('DOMContentLoaded', () => {
+  renderParticipants();
   renderHistory();
+  showNumbers('      ');
 });
