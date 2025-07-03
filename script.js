@@ -49,14 +49,16 @@ drawBtn.addEventListener("click", () => {
 });
 
 function showResult(prize, winners) {
-  const winner = winners[0];
-  spinner.textContent = `${winner.code} – ${winner.name}`;
-  popup.textContent = `${winner.code} – ${winner.name} 🎉`;
+  const namesPopup = winners.map(w => `${w.code} – ${w.name}`).join('<br>');
+  popup.innerHTML = `🎉 ${prize}<br><br>${namesPopup}`;
   popup.classList.remove("hidden");
 
-  setTimeout(() => {
-    popup.classList.add("hidden");
-  }, 4000);
+setTimeout(() => {
+  popup.classList.add("hidden");
+}, 5000);
+
+spinner.textContent = `${winners[0].code} – ${winners[0].name}`;
+
 
   ting.play();
   cheer.play();
