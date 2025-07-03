@@ -10,21 +10,30 @@
 <body>
   <div class="main-container">
     <h1 class="lds-title">LUCKY DRAW SOFTWARE</h1>
-    <div class="draw-controls">
-      <textarea id="nameInput" class="input-names" placeholder="Nhập từng người (mỗi dòng một tên hoặc mã - tên)"></textarea>
-      <div class="draw-options">
-        <input type="text" id="prizeName" class="input-prize" placeholder="Tên giải thưởng (vd: Giải Nhất)">
-        <input type="number" id="winnerCount" class="input-count" placeholder="Số người trúng" min="1">
-        <button id="drawBtn" class="btn main-btn">✨ QUAY!</button>
-      </div>
+    <div class="prize-section">
+      <div class="medal" id="medal">3</div>
+      <div class="prize-label" id="prizeLabel">GIẢI BA</div>
     </div>
-    <div class="number-row" id="numberRow" style="display:none;"></div>
-    <div class="prize-label" id="prizeLabel" style="display:none;"></div>
+    <div class="winner-name" id="winnerName">Nhấn nút Quay số để bắt đầu</div>
+    <div class="number-row" id="numberRow">
+      <div class="number-box"> </div>
+      <div class="number-box"> </div>
+      <div class="number-box"> </div>
+      <div class="number-box"> </div>
+      <div class="number-box"> </div>
+      <div class="number-box"> </div>
+    </div>
+    <div class="button-row">
+      <button class="btn main-btn" id="drawBtn">QUAY SỐ</button>
+      <button class="btn register-btn" id="registerBtn">ĐĂNG KÝ</button>
+    </div>
+    <div class="register-section" id="registerSection" style="display:none;">
+      <input type="text" id="registerName" class="input-register" placeholder="Nhập tên hoặc mã - tên">
+      <button class="btn add-btn" id="addBtn">Thêm</button>
+      <button class="btn close-btn" id="closeRegisterBtn">Đóng</button>
+      <div class="participant-list" id="participantList"></div>
+    </div>
     <div class="winner-popup hidden" id="winnerPopup"></div>
-    <div class="button-row" id="resultActions" style="display:none;">
-      <button class="btn confirm" id="confirmBtn">XÁC NHẬN</button>
-      <button class="btn retry" id="retryBtn">QUAY LẠI</button>
-    </div>
     <div class="history-section">
       <h2>Lịch sử quay số</h2>
       <ul id="historyList"></ul>
