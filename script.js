@@ -4,6 +4,7 @@ const resultBox = document.getElementById("resultBox");
 const popup = document.getElementById("popup");
 const ting = document.getElementById("ting");
 const cheer = document.getElementById("cheer");
+const spinMusic = document.getElementById("spinMusic");
 
 drawBtn.addEventListener("click", () => {
   const raw = document.getElementById("nameInput").value.trim();
@@ -36,12 +37,16 @@ drawBtn.addEventListener("click", () => {
   let interval = 80;
 
   const spin = setInterval(() => {
+    spinMusic.currentTime = 0;
+    spinMusic.play();
     const current = entries[i % entries.length];
     spinner.textContent = `${current.code} – ${current.name}`;
     i++;
     elapsed += interval;
     if (elapsed >= duration) {
       clearInterval(spin);
+      spinMusic.pause();
+      spinMusic.currentTime = 0;
       const winners = entries.slice(0, count);
       showResult(prize, winners);
     }
