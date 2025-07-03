@@ -1,25 +1,29 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Quay số may mắn</title>
-  <link rel="stylesheet" href="style.css" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🎯 Vòng Quay May Mắn</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <h1>🎯 Quay Số May Mắn</h1>
+  <div class="container">
+    <h1>🎯 Vòng Quay May Mắn</h1>
 
-  <textarea id="nameInput" placeholder="Nhập tên mỗi người, cách nhau bằng dòng mới..."></textarea>
-  
-  <div class="config">
-    <input type="text" id="prizeName" placeholder="Tên giải thưởng (ví dụ: Giải Nhất)" />
-    <input type="number" id="winnerCount" placeholder="Số người trúng" />
-    <button onclick="startDraw()">🎲 Quay!</button>
+    <textarea id="nameInput" placeholder="Nhập tên từng người, mỗi dòng 1 người..."></textarea>
+
+    <div class="controls">
+      <input type="text" id="prizeName" placeholder="Tên giải (vd: Giải Đặc Biệt)">
+      <input type="number" id="winnerCount" placeholder="Số người trúng">
+      <button onclick="startDraw()">✨ Quay Ngay!</button>
+    </div>
+
+    <div id="resultBox" class="results"></div>
+
+    <div class="actions">
+      <button onclick="clearResults()">🗑 Xóa kết quả</button>
+    </div>
   </div>
-
-  <div id="resultBox"></div>
-
-  <button onclick="clearResults()">🗑 Xóa kết quả</button>
 
   <script src="script.js"></script>
 </body>
