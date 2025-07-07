@@ -1,56 +1,62 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Lucky Draw Software</title>
-  <link rel="stylesheet" href="style.css" />
-  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700;400&display=swap" rel="stylesheet">
+  <meta charset="UTF-8">
+  <title>LUCKY DRAW SOFTWARE</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div class="main-container">
-    <h1 class="lds-title">LUCKY DRAW SOFTWARE</h1>
-    <div class="prize-section">
-      <div class="medal" id="medal">3</div>
-      <div class="prize-label" id="prizeLabel">GIẢI BA</div>
+  <header>
+    <h1 class="main-title">LUCKY DRAW SOFTWARE <span class="icon-edit">✎</span> <span class="dot"></span></h1>
+  </header>
+  <main>
+    <div class="lucky-section">
+      <div class="badge"><span>1</span></div>
+      <div class="lucky-label">Người May Mắn <span class="dot"></span></div>
+      <div class="lucky-cards">
+        <div class="card"><span class="icon-edit">✎</span></div>
+        <div class="card"><span class="icon-edit">✎</span></div>
+        <div class="card"><span class="icon-edit">✎</span></div>
+        <div class="card"><span class="icon-edit">✎</span></div>
+        <div class="card"><span class="icon-edit">✎</span></div>
+        <div class="card"><span class="icon-edit">✎</span></div>
+      </div>
+      <div class="prize-select">
+        <button class="arrow left">&#60;</button>
+        <span class="prize-label">GIẢI NHẤT</span>
+        <button class="arrow right">&#62;</button>
+      </div>
+      <button class="show-btn">TRÌNH CHIẾU!</button>
     </div>
-    <div class="winner-name" id="winnerName">Nhấn nút Quay số để bắt đầu</div>
-    <div class="number-row" id="numberRow">
-      <div class="number-box"> </div>
-      <div class="number-box"> </div>
-      <div class="number-box"> </div>
-      <div class="number-box"> </div>
-      <div class="number-box"> </div>
-      <div class="number-box"> </div>
-    </div>
-    <div class="button-row">
-      <button class="btn main-btn" id="drawBtn">QUAY SỐ</button>
-      <button class="btn register-btn" id="registerBtn">ĐĂNG KÝ</button>
-    </div>
-    <div class="register-section" id="registerSection" style="display:none;">
-      <input type="text" id="registerName" class="input-register" placeholder="Nhập tên hoặc mã - tên">
-      <button class="btn add-btn" id="addBtn">Thêm</button>
-      <button class="btn close-btn" id="closeRegisterBtn">Đóng</button>
-      <div class="participant-list" id="participantList"></div>
-    </div>
-    <div class="winner-popup hidden" id="winnerPopup"></div>
-    <div class="history-section">
-      <h2>Lịch sử quay số</h2>
-      <ul id="historyList"></ul>
-      <button class="btn clear-history" id="clearHistoryBtn">Xóa lịch sử</button>
-    </div>
-    <div class="footer-menu">
+  </main>
+  <footer>
+    <div class="menu-bar">
       <span>Kết quả</span>
       <span>Hướng dẫn</span>
       <span>Phí sử dụng</span>
-      <span>Đăng nhập</span>
-      <span class="footer-icons">🎮 📷 ✉️ 🎵</span>
+      <span>Tài khoản</span>
+      <span>Đăng xuất</span>
+    </div>
+    <div class="icon-bar">
+      <span class="icon">🔔</span>
+      <span class="icon">📞</span>
+      <span class="icon">✉️</span>
+      <span class="icon" id="bg-image-btn">🖼️</span>
+      <span class="icon">🎵</span>
+    </div>
+  </footer>
+  <div id="bg-modal" class="bg-modal hidden">
+    <div class="bg-modal-content">
+      <div class="bg-modal-header">
+        <span>🖼️ Thay đổi hình nền</span>
+        <span class="bg-modal-close">&times;</span>
+      </div>
+      <div class="bg-modal-body">
+        <label for="bg-upload" class="bg-upload-label">+ Upload hình mới</label>
+        <input type="file" id="bg-upload" accept="image/*" style="display:none;" />
+      </div>
     </div>
   </div>
-  <audio id="cheer" src="https://cdn.pixabay.com/audio/2022/03/15/audio_dbe3d93c13.mp3" preload="auto"></audio>
-  <audio id="ting" src="https://cdn.pixabay.com/audio/2022/03/02/audio_59d63ad15a.mp3" preload="auto"></audio>
-  <audio id="spinMusic" src="https://cdn.pixabay.com/audio/2022/10/03/audio_dbee3da85b.mp3" preload="auto"></audio>
-  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
   <script src="script.js"></script>
 </body>
-</html>
+</html> 
