@@ -7,26 +7,60 @@
 </head>
 <body>
   <header>
-    <h1 class="main-title">LUCKY DRAW SOFTWARE <span class="icon-edit">✎</span> <span class="dot"></span></h1>
+    <h1 class="main-title">LUCKY DRAW SOFTWARE <span class="icon-edit" id="edit-title-btn">✎</span> <span class="dot"></span></h1>
   </header>
   <main>
-    <div class="lucky-section">
-      <div class="badge"><span>1</span></div>
-      <div class="lucky-label">Người May Mắn <span class="dot"></span></div>
-      <div class="lucky-cards">
-        <div class="card"><span class="icon-edit">✎</span></div>
-        <div class="card"><span class="icon-edit">✎</span></div>
-        <div class="card"><span class="icon-edit">✎</span></div>
-        <div class="card"><span class="icon-edit">✎</span></div>
-        <div class="card"><span class="icon-edit">✎</span></div>
-        <div class="card"><span class="icon-edit">✎</span></div>
+    <div class="main-mode">
+      <div class="lucky-section">
+        <div class="badge"><span>1</span></div>
+        <div class="lucky-label">Người May Mắn <span class="dot"></span></div>
+        <div class="lucky-cards">
+          <div class="card"><span class="icon-edit">✎</span></div>
+          <div class="card"><span class="icon-edit">✎</span></div>
+          <div class="card"><span class="icon-edit">✎</span></div>
+          <div class="card"><span class="icon-edit">✎</span></div>
+          <div class="card"><span class="icon-edit">✎</span></div>
+          <div class="card"><span class="icon-edit">✎</span></div>
+        </div>
+        <div class="prize-select">
+          <button class="arrow left">&#60;</button>
+          <span class="prize-label">GIẢI NHẤT</span>
+          <button class="arrow right">&#62;</button>
+        </div>
+        <button class="show-btn">TRÌNH CHIẾU!</button>
+      </div>
+    </div>
+    <div class="draw-mode" style="display:none;">
+      <div class="draw-badge-glow"><span>3</span></div>
+      <div class="draw-label">Nhấn nút Quay số để bắt đầu</div>
+      <div class="draw-cards">
+        <div class="draw-card"><span>3</span></div>
+        <div class="draw-card"><span>3</span></div>
+        <div class="draw-card"><span>3</span></div>
+        <div class="draw-card"><span>3</span></div>
+        <div class="draw-card"><span>3</span></div>
+        <div class="draw-card"><span>3</span></div>
       </div>
       <div class="prize-select">
         <button class="arrow left">&#60;</button>
-        <span class="prize-label">GIẢI NHẤT</span>
+        <span class="prize-label">GIẢI BA</span>
+        <span class="prize-count"><span class="prize-person-icon"></span><span class="prize-count-num">0</span></span>
         <button class="arrow right">&#62;</button>
       </div>
-      <button class="show-btn">TRÌNH CHIẾU!</button>
+      <button class="draw-btn">QUAY SỐ</button>
+      <button class="end-btn">Kết thúc</button>
+    </div>
+    <div class="result-mode" style="display:none; flex-direction:column; align-items:center; margin-top:48px;">
+      <div class="draw-badge-glow"><span id="result-badge">3</span></div>
+      <div id="result-winner-name" style="font-size:2.1rem;font-weight:bold;color:#ffd600;text-shadow:0 2px 8px #000a;margin-bottom:18px;"></div>
+      <div class="draw-cards result-cards" style="margin-bottom:24px;"></div>
+      <div class="prize-select" style="margin-bottom:18px;">
+        <span class="prize-label" id="result-prize-label">GIẢI BA</span>
+      </div>
+      <div style="display:flex;gap:18px;margin-bottom:12px;">
+        <button class="result-confirm-btn" style="background:#ffd600;color:#22223a;font-weight:bold;padding:16px 48px;border:none;border-radius:10px;font-size:1.3rem;box-shadow:0 2px 12px #ffd60055;">XÁC NHẬN</button>
+        <button class="result-back-btn" style="background:#5a4ca7;color:#fff;font-weight:bold;padding:16px 48px;border:none;border-radius:10px;font-size:1.3rem;box-shadow:0 2px 12px #ffd60055;">QUAY LẠI</button>
+      </div>
     </div>
   </main>
   <footer>
@@ -54,6 +88,80 @@
       <div class="bg-modal-body">
         <label for="bg-upload" class="bg-upload-label">+ Upload hình mới</label>
         <input type="file" id="bg-upload" accept="image/*" style="display:none;" />
+        <div class="bg-modal-actions">
+          <button type="button" class="bg-default-btn">Ảnh nền mặc định</button>
+          <button type="button" class="bg-prev-btn">Ảnh trước đó</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div id="event-title-modal" class="event-title-modal hidden">
+    <form class="event-title-form">
+      <input type="text" id="event-title-input" placeholder="Tên sự kiện" />
+      <button type="submit" class="event-title-submit">✔</button>
+    </form>
+  </div>
+  <!-- Prize Management Modal -->
+  <div id="prize-modal" class="prize-modal hidden">
+    <div class="prize-modal-content">
+      <div class="prize-modal-header">
+        <span>Đổi tên giải thưởng</span>
+        <span class="prize-modal-close">&times;</span>
+      </div>
+      <div class="prize-modal-body">
+        <div class="prize-list"></div>
+        <button type="button" class="prize-add-btn">+ Thêm giải</button>
+      </div>
+      <div class="prize-modal-footer">
+        <button type="button" class="prize-default-btn">Mặc định</button>
+        <button type="button" class="prize-cancel-btn">Hủy bỏ</button>
+        <button type="button" class="prize-save-btn">Lưu lại</button>
+      </div>
+    </div>
+  </div>
+  <!-- Lucky List Modal -->
+  <div id="lucky-list-modal" class="lucky-list-modal hidden">
+    <div class="lucky-list-modal-content">
+      <div class="lucky-list-modal-header">
+        <span>Nhập danh sách mã số để quay thưởng</span>
+        <span class="lucky-list-modal-close">&times;</span>
+      </div>
+      <div class="lucky-list-modal-body">
+        <div style="margin-bottom: 10px; font-weight: bold;">
+          <input type="checkbox" id="auto-update-list" checked style="margin-right: 6px;">Cập nhật danh sách
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px;">
+          <span>hoặc tự động tạo số:</span>
+          <input type="number" id="auto-from" min="1" value="1" style="width: 60px;"> -
+          <input type="number" id="auto-to" min="1" value="20" style="width: 60px;">
+          <button type="button" id="auto-generate-btn" class="auto-generate-btn">TẠO SỐ</button>
+        </div>
+        <div style="display: flex; gap: 10px;">
+          <textarea id="lucky-code-list" placeholder="BƯỚC 1: Copy danh sách Mã số quay thưởng vào đây" rows="5" style="flex:1;resize:vertical;"></textarea>
+          <textarea id="lucky-name-list" placeholder="BƯỚC 2: Copy danh sách Họ tên vào đây" rows="5" style="flex:1;resize:vertical;"></textarea>
+        </div>
+        <div style="margin-top: 8px; font-size: 0.95em; color: #333;">
+          Số lượng: <span id="lucky-code-count">0</span> Mã số, <span id="lucky-name-count">0</span> Họ tên
+        </div>
+      </div>
+      <div class="lucky-list-modal-footer">
+        <button type="button" class="lucky-list-cancel-btn">HỦY BỎ</button>
+        <button type="button" class="lucky-list-save-btn">LƯU LẠI</button>
+        <button type="button" class="lucky-list-draw-btn">QUAY SỐ</button>
+      </div>
+    </div>
+  </div>
+  <!-- Result List Modal -->
+  <div id="result-list-modal" class="result-list-modal hidden">
+    <div class="result-list-modal-content">
+      <div class="result-list-modal-header">
+        <span>Kết quả quay số may mắn</span>
+        <span class="result-list-modal-close">&times;</span>
+      </div>
+      <div class="result-list-tabs"></div>
+      <div class="result-list-table-wrap"></div>
+      <div class="result-list-download-wrap">
+        <button class="result-list-download-btn">&#128229; Download</button>
       </div>
     </div>
   </div>
