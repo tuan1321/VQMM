@@ -119,11 +119,10 @@ eventTitleModal && eventTitleModal.addEventListener('click', function(e) {
 
 // Prize Management Logic
 (function() {
-  // Lấy tất cả các phần tử liên quan ở cả hai chế độ
-  const prizeLabels = document.querySelectorAll('.prize-label');
+  const ICONS = ["💎", "🥇", "🥈", "🥉", "🏆", "🎖️", "🎁", "⭐", "🎯", "🎉", "🏅", "👑", "🦄", "🧧", "🎲", "🧿"];
   const leftArrows = document.querySelectorAll('.prize-select .arrow.left');
   const rightArrows = document.querySelectorAll('.prize-select .arrow.right');
-  const prizeModals = document.getElementById('prize-modal');
+  const prizeModal = document.getElementById('prize-modal');
   const prizeListDiv = document.querySelector('.prize-list');
   const addPrizeBtn = document.querySelector('.prize-add-btn');
   const closeBtn = document.querySelector('.prize-modal-close');
@@ -132,42 +131,88 @@ eventTitleModal && eventTitleModal.addEventListener('click', function(e) {
   const defaultBtn = document.querySelector('.prize-default-btn');
   const modalFooter = document.querySelector('.prize-modal-footer');
 
-  const DEFAULT_PRIZES = ["GIẢI ĐẶC BIỆT", "GIẢI NHẤT", "GIẢI NHÌ", "GIẢI BA"];
+  const DEFAULT_PRIZES = [
+    {name: "GIẢI ĐẶC BIỆT", icon: "💎"},
+    {name: "GIẢI NHẤT", icon: "🥇"},
+    {name: "GIẢI NHÌ", icon: "🥈"},
+    {name: "GIẢI BA", icon: "🥉"}
+  ];
   let prizes = [];
   let currentPrizeIdx = 0;
 
   function loadPrizes() {
     const saved = localStorage.getItem('prizes');
-    prizes = saved ? JSON.parse(saved) : [...DEFAULT_PRIZES];
+    if (saved) {
+      prizes = JSON.parse(saved);
+      if (typeof prizes[0] === 'string') {
+        prizes = prizes.map((name, i) => ({name, icon: ICONS[i % ICONS.length]}));
+      }
+    } else {
+      prizes = [...DEFAULT_PRIZES];
+    }
     if (!prizes.length) prizes = [...DEFAULT_PRIZES];
   }
   function savePrizes() {
     localStorage.setItem('prizes', JSON.stringify(prizes));
   }
-  function updatePrizeLabels() {
-    prizeLabels.forEach(label => {
-      label.textContent = prizes[currentPrizeIdx] || '';
-    });
+  function saveCurrentPrizeIdx() {
+    localStorage.setItem('currentPrizeIdx', currentPrizeIdx);
+  }
+  function loadCurrentPrizeIdx() {
+    const idx = parseInt(localStorage.getItem('currentPrizeIdx'), 10);
+    if (!isNaN(idx) && idx >= 0 && idx < prizes.length) {
+      currentPrizeIdx = idx;
+    } else {
+      currentPrizeIdx = 0;
+    }
+  }
+  function updateAllPrizeDisplays() {
+    const prizeLabels = document.querySelectorAll('.prize-label');
+    const prizeIcons = document.querySelectorAll('.prize-label-icon');
+    const prizeCounts = document.querySelectorAll('.prize-count-num');
+    const badgeSpans = document.querySelectorAll('.draw-badge-glow span, .badge span');
+    let prize = prizes[currentPrizeIdx];
+    prizeLabels.forEach(label => { label.textContent = prize?.name || ''; });
+    prizeIcons.forEach(icon => { icon.textContent = prize?.icon || ''; });
+    // Cập nhật số người đã đạt giải cho tất cả count-num
+    let winners = JSON.parse(localStorage.getItem('winners') || '[]');
+    let count = winners.filter(w => w.prize === prize?.name).length;
+    prizeCounts.forEach(countEl => { countEl.textContent = count; });
+    // Cập nhật icon cho badge ở cả main-mode và draw-mode
+    badgeSpans.forEach(badge => { badge.textContent = prize?.icon || ''; });
   }
   function showModal() {
     renderPrizeList();
-    prizeModals.classList.remove('hidden');
+    prizeModal.classList.remove('hidden');
   }
   function hideModal() {
-    prizeModals.classList.add('hidden');
+    prizeModal.classList.add('hidden');
   }
   function renderPrizeList() {
     prizeListDiv.innerHTML = '';
     prizes.forEach((prize, idx) => {
       const div = document.createElement('div');
       div.className = 'prize-item';
+      // Icon
+      const iconSpan = document.createElement('span');
+      iconSpan.className = 'prize-icon';
+      iconSpan.textContent = prize.icon || ICONS[idx % ICONS.length];
+      iconSpan.title = 'Click để đổi icon';
+      iconSpan.onclick = () => {
+        let curIdx = ICONS.indexOf(prizes[idx].icon);
+        prizes[idx].icon = ICONS[(curIdx + 1) % ICONS.length];
+        iconSpan.textContent = prizes[idx].icon;
+      };
+      div.appendChild(iconSpan);
+      // Input
       const input = document.createElement('input');
       input.type = 'text';
-      input.value = prize;
+      input.value = prize.name;
       input.addEventListener('input', e => {
-        prizes[idx] = e.target.value;
+        prizes[idx].name = e.target.value;
       });
       div.appendChild(input);
+      // Xóa
       const delBtn = document.createElement('button');
       delBtn.className = 'prize-delete-btn';
       delBtn.textContent = 'X';
@@ -181,32 +226,31 @@ eventTitleModal && eventTitleModal.addEventListener('click', function(e) {
       prizeListDiv.appendChild(div);
     });
   }
-  // Sự kiện mở modal (chỉ ở main-mode)
-  if (prizeLabels[0]) prizeLabels[0].addEventListener('click', showModal);
-  // Sự kiện đóng modal
+  // Prize label click (chỉ ở main-mode)
+  const mainPrizeLabel = document.querySelector('.prize-label');
+  mainPrizeLabel && mainPrizeLabel.addEventListener('click', showModal);
   closeBtn.addEventListener('click', hideModal);
   cancelBtn.addEventListener('click', hideModal);
-  prizeModals.addEventListener('click', function(e) {
-    if (e.target === prizeModals) hideModal();
+  prizeModal.addEventListener('click', function(e) {
+    if (e.target === prizeModal) hideModal();
   });
-  // Thêm giải
   addPrizeBtn.addEventListener('click', function() {
-    prizes.push('');
+    prizes.push({name: '', icon: ICONS[prizes.length % ICONS.length]});
     renderPrizeList();
   });
-  // Lưu giải
   saveBtn.addEventListener('click', function() {
-    prizes = prizes.filter(p => p.trim() !== '');
+    prizes = prizes.filter(p => p.name.trim() !== '');
     if (prizes.length === 0) prizes = [...DEFAULT_PRIZES];
     if (currentPrizeIdx >= prizes.length) currentPrizeIdx = prizes.length - 1;
     savePrizes();
-    updatePrizeLabels();
+    saveCurrentPrizeIdx();
+    updateAllPrizeDisplays();
     hideModal();
   });
-  // Mặc định
   defaultBtn.addEventListener('click', function() {
     prizes = [...DEFAULT_PRIZES];
     currentPrizeIdx = 0;
+    saveCurrentPrizeIdx();
     renderPrizeList();
   });
   // Chuyển giải trái/phải cho tất cả các bộ nút
@@ -214,26 +258,29 @@ eventTitleModal && eventTitleModal.addEventListener('click', function(e) {
     btn.addEventListener('click', function() {
       if (prizes.length === 0) return;
       currentPrizeIdx = (currentPrizeIdx - 1 + prizes.length) % prizes.length;
-      updatePrizeLabels();
+      saveCurrentPrizeIdx();
+      updateAllPrizeDisplays();
     });
   });
   rightArrows.forEach(btn => {
     btn.addEventListener('click', function() {
       if (prizes.length === 0) return;
       currentPrizeIdx = (currentPrizeIdx + 1) % prizes.length;
-      updatePrizeLabels();
+      saveCurrentPrizeIdx();
+      updateAllPrizeDisplays();
     });
   });
   // Khi chuyển chế độ, cập nhật giải thưởng đang chọn
   document.querySelector('.show-btn').addEventListener('click', function() {
-    updatePrizeLabels();
+    updateAllPrizeDisplays();
   });
   document.querySelector('.end-btn').addEventListener('click', function() {
-    updatePrizeLabels();
+    updateAllPrizeDisplays();
   });
   // Khởi tạo
   loadPrizes();
-  updatePrizeLabels();
+  loadCurrentPrizeIdx();
+  updateAllPrizeDisplays();
 })(); 
 
 // Quay số: mỗi ô draw-card là 1 số của mã thưởng, tên hiển thị bên dưới
@@ -282,6 +329,9 @@ function showResultScreen(code6, name) {
   document.querySelector('.draw-mode').style.display = 'none';
   const resultMode = document.querySelector('.result-mode');
   resultMode.style.display = 'flex';
+  // Hiển thị tên sự kiện
+  const eventTitle = localStorage.getItem('eventTitle') || 'LUCKY DRAW SOFTWARE';
+  document.getElementById('result-event-title').textContent = eventTitle;
   // Hiển thị dãy số
   const resultCards = resultMode.querySelector('.result-cards');
   resultCards.innerHTML = '';
@@ -294,12 +344,14 @@ function showResultScreen(code6, name) {
   }
   // Hiển thị tên
   document.getElementById('result-winner-name').textContent = name || '';
-  // Hiển thị giải thưởng
-  const prizeLabel = document.querySelector('.draw-mode .prize-label');
-  document.getElementById('result-prize-label').textContent = prizeLabel ? prizeLabel.textContent : '';
-  // Hiển thị badge số lượng (nếu có)
-  const badge = document.querySelector('.draw-badge-glow span');
-  document.getElementById('result-badge').textContent = badge ? badge.textContent : '';
+  // Hiển thị giải thưởng và icon
+  const prizes = JSON.parse(localStorage.getItem('prizes') || '[]');
+  let prizeLabel = document.querySelector('.draw-mode .prize-label');
+  let prizeName = prizeLabel ? prizeLabel.textContent : '';
+  let prizeObj = prizes.find(p => p.name === prizeName);
+  document.getElementById('result-prize-label').textContent = prizeName;
+  // Hiển thị icon badge
+  document.getElementById('result-badge').textContent = prizeObj && prizeObj.icon ? prizeObj.icon : '';
 }
 // Nút xác nhận/quay lại
 const resultConfirmBtn = document.querySelector('.result-confirm-btn');
@@ -340,18 +392,10 @@ if (resultBackBtn) {
   };
 }
 
+// Ẩn hoặc loại bỏ phần hiển thị đã có X người đạt giải
 function updateWinnerCount(prize) {
-  let winners = JSON.parse(localStorage.getItem('winners') || '[]');
-  let count = winners.filter(w => w.prize === prize).length;
-  let prizeLabel = document.getElementById('result-prize-label');
   let countDiv = document.getElementById('winner-count-info');
-  if (!countDiv) {
-    countDiv = document.createElement('div');
-    countDiv.id = 'winner-count-info';
-    countDiv.style = 'margin-top:8px;font-size:1.1em;color:#ffd600;text-align:center;font-weight:bold;';
-    prizeLabel.parentNode.appendChild(countDiv);
-  }
-  countDiv.textContent = `Đã có ${count} người đạt giải`;
+  if (countDiv) countDiv.style.display = 'none';
 }
 
 function updatePrizeCount(prize) {
@@ -596,3 +640,57 @@ drawBtn && drawBtn.addEventListener('click', function() {
     }
   };
 })(); 
+
+// ==== Main Title Color Picker ====
+(function() {
+  const dot = document.querySelector('.dot');
+  const colorInput = document.getElementById('titleColorPicker');
+  const mainTitle = document.querySelector('.main-title');
+  // Load màu từ localStorage
+  function applyTitleColor() {
+    const color = localStorage.getItem('mainTitleColor');
+    if (color) {
+      mainTitle.style.color = color;
+      dot.style.background = color;
+    } else {
+      mainTitle.style.color = '';
+      dot.style.background = '#e0e0e0';
+    }
+  }
+  dot.addEventListener('click', function() {
+    colorInput.click();
+  });
+  colorInput.addEventListener('input', function() {
+    const color = colorInput.value;
+    mainTitle.style.color = color;
+    dot.style.background = color;
+    localStorage.setItem('mainTitleColor', color);
+  });
+  applyTitleColor();
+})(); 
+
+// ==== Draw Cards Show Prize Icon Instead of Number ====
+function updateDrawCardsWithPrizeIcon() {
+  const cards = document.querySelectorAll('.draw-card');
+  // Lấy icon của giải hiện tại
+  let prizes = JSON.parse(localStorage.getItem('prizes'));
+  let idx = parseInt(localStorage.getItem('currentPrizeIdx'), 10);
+  if (!prizes || !prizes.length) return;
+  if (isNaN(idx) || idx < 0 || idx >= prizes.length) idx = 0;
+  let icon = prizes[idx].icon || '';
+  cards.forEach(card => {
+    card.textContent = icon;
+    card.classList.add('prize-icon-card');
+  });
+}
+// Gọi hàm này khi vào draw-mode và result-mode
+function observeDrawMode() {
+  const main = document.querySelector('main');
+  const observer = new MutationObserver(() => {
+    if (main.classList.contains('draw-mode') || main.classList.contains('result-mode')) {
+      updateDrawCardsWithPrizeIcon();
+    }
+  });
+  observer.observe(main, { attributes: true, attributeFilter: ['class'] });
+}
+observeDrawMode(); 
