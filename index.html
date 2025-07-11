@@ -9,8 +9,7 @@
   <header>
     <div class="main-header">
       <span class="dot"></span>
-      <h1 class="main-title">LUCKY DRAW</h1>
-      <input type="color" id="titleColorPicker" style="display:none" />
+      <h1 class="main-title">VÒNG QUAY MAY MẮN</h1><input type="color" id="titleColorPicker" style="display:none; margin-left:12px; vertical-align:middle;" />
     </div>
   </header>
   <main>
@@ -37,6 +36,7 @@
     <div class="draw-mode" style="display:none;">
       <div class="draw-badge-glow"><span>3</span></div>
       <div class="draw-label">Nhấn nút Quay số để bắt đầu</div>
+      <div class="draw-searching" style="display:none; text-align:center; margin:12px 0; font-size:1.2em; color:#ffd600; font-weight:bold; text-shadow:0 2px 8px #000a;">🔍 Đang tìm người may mắn...</div>
       <div class="draw-cards">
         <div class="draw-card"><span>3</span></div>
         <div class="draw-card"><span>3</span></div>
@@ -47,12 +47,12 @@
       </div>
       <div class="prize-select">
         <button class="arrow left">&#60;</button>
-        <span class="prize-label-icon"></span>
         <span class="prize-label">GIẢI BA</span>
         <span class="prize-count"><span class="prize-person-icon"></span><span class="prize-count-num">0</span></span>
         <button class="arrow right">&#62;</button>
       </div>
       <button class="draw-btn">QUAY SỐ</button>
+      <button class="lock-btn" style="display:none;">CHỐT</button>
       <button class="end-btn">Kết thúc</button>
     </div>
     <div class="result-mode" style="display:none; flex-direction:column; align-items:center; margin-top:48px;">
@@ -70,19 +70,21 @@
     </div>
   </main>
   <footer>
-    <div class="menu-bar">
-      <span>Kết quả</span>
-      <span>Hướng dẫn</span>
-      <span>Phí sử dụng</span>
-      <span>Tài khoản</span>
-      <span>Đăng xuất</span>
-    </div>
-    <div class="icon-bar">
-      <span class="icon">🔔</span>
-      <span class="icon">📞</span>
-      <span class="icon">✉️</span>
-      <span class="icon" id="bg-image-btn">🖼️</span>
-      <span class="icon">🎵</span>
+    <div class="footer-bar">
+      <div class="menu-bar">
+        <span>Kết quả</span>
+        <span>Hướng dẫn</span>
+        <span>Phí sử dụng</span>
+        <span>Tài khoản</span>
+        <span>Đăng xuất</span>
+      </div>
+      <div class="icon-bar">
+        <span class="icon">🔔</span>
+        <span class="icon">📞</span>
+        <span class="icon">✉️</span>
+        <span class="icon" id="bg-image-btn">🖼️</span>
+        <span class="icon">🎵</span>
+      </div>
     </div>
   </footer>
   <div id="bg-modal" class="bg-modal hidden">
@@ -171,6 +173,10 @@
       </div>
     </div>
   </div>
+  <canvas id="confetti-canvas" style="position:fixed;top:0;left:0;width:100vw;height:100vh;pointer-events:none;z-index:999;display:none;"></canvas>
+  <audio id="bg-music" src="bg-music.mp3" loop preload="auto" style="display:none"></audio>
+  <audio id="spin-music" src="spin-music.mp3" preload="auto" style="display:none"></audio>
+  <audio id="result-music" src="result-music.mp3" preload="auto" style="display:none"></audio>
   <script src="script.js"></script>
 </body>
 </html> 
