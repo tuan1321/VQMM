@@ -106,30 +106,45 @@ header {
 .prize-select {
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin-bottom: 18px;
-}
-.arrow {
-  background: #3b3366;
-  color: #ffd600;
-  border: 2px solid #ffd600;
-  border-radius: 50%;
-  width: 36px;
-  height: 36px;
-  font-size: 1.3rem;
-  cursor: pointer;
+  justify-content: center;
+  background: #c62828;
+  border-radius: 6px;
+  padding: 8px 18px;
+  gap: 8px;
+  margin: 0 auto 18px auto;
+  font-size: 1.1rem;
   font-weight: bold;
-  transition: background 0.2s, color 0.2s;
-}
-.arrow:hover {
-  background: #ffd600;
-  color: #3b3366;
+  color: #ffd600;
+  box-shadow: none;
 }
 .prize-label {
   color: #ffd600;
   font-size: 1.1rem;
   font-weight: bold;
   letter-spacing: 1px;
+  text-shadow: none;
+}
+.arrow {
+  background: transparent;
+  color: #ffd600;
+  border: none;
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  font-size: 1.2rem;
+  cursor: pointer;
+  font-weight: bold;
+  transition: background 0.2s, color 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.arrow:hover {
+  background: #ffd600;
+  color: #c62828;
+}
+.prize-count {
+  display: none;
 }
 .show-btn {
   margin-top: 8px;
@@ -152,6 +167,7 @@ footer {
   margin-top: auto;
   width: 100vw;
   padding-bottom: 12px;
+  z-index: 1;
 }
 .menu-bar {
   display: flex;
@@ -364,6 +380,101 @@ footer {
   text-align: center;
   text-shadow: 0 2px 8px #000a;
 }
+
+.draw-searching {
+  animation: searchingPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes searchingPulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(1.02);
+  }
+}
+
+@keyframes slotScroll {
+  0% {
+    transform: translateY(0);
+  }
+  100% {
+    transform: translateY(-50%);
+  }
+}
+
+@keyframes slotSlowDown {
+  0% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-25%);
+  }
+  100% {
+    transform: translateY(-50%);
+  }
+}
+
+/* Slot Machine Effects */
+.slot-container {
+  border-radius: 12px;
+  background: linear-gradient(145deg, #463a6b, #3b3366);
+  box-shadow: inset 0 2px 4px rgba(255,255,255,0.1), inset 0 -2px 4px rgba(0,0,0,0.3);
+  will-change: transform, opacity;
+  backface-visibility: hidden;
+  transform: translateZ(0);
+  overflow: hidden;
+  position: relative;
+}
+
+.slot-reel {
+  will-change: transform;
+  backface-visibility: hidden;
+  transform-style: preserve-3d;
+  transform: translateZ(0);
+}
+
+.slot-reel span {
+  transition: none;
+  backface-visibility: hidden;
+  transform: translateZ(0);
+  will-change: transform;
+}
+
+/* Hiệu ứng glow cho số đang hiển thị */
+.slot-container::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 140px;
+  transform: translateY(-50%);
+  background: linear-gradient(
+    to bottom,
+    transparent 0%,
+    rgba(255, 214, 0, 0.1) 20%,
+    rgba(255, 214, 0, 0.2) 50%,
+    rgba(255, 214, 0, 0.1) 80%,
+    transparent 100%
+  );
+  pointer-events: none;
+  z-index: 1;
+}
+
+@media (max-width: 900px) {
+  .slot-container::before {
+    height: 90px;
+  }
+}
+
+@media (max-width: 600px) {
+  .slot-container::before {
+    height: 50px;
+  }
+}
 .draw-cards {
   display: flex;
   gap: 18px;
@@ -398,7 +509,7 @@ footer {
   color: #fff;
   font-weight: bold;
 }
-.draw-btn {
+.draw-btn, .lock-btn {
   margin-top: 8px;
   padding: 16px 48px;
   font-size: 1.3rem;
@@ -413,7 +524,7 @@ footer {
   margin-bottom: 12px;
   letter-spacing: 1px;
 }
-.draw-btn:hover {
+.draw-btn:hover, .lock-btn:hover {
   background: #fff;
   color: #ffd600;
 }
@@ -468,11 +579,12 @@ footer {
   background: #fff;
   color: #22223a;
   border: 2px solid #ffd600;
-  border-radius: 8px;
-  font-weight: 500;
+  border-radius: 10px;
+  font-weight: bold;
   cursor: pointer;
   margin-bottom: 12px;
   transition: background 0.2s, color 0.2s;
+  box-shadow: 0 2px 12px #ffd60033;
 }
 .end-btn:hover {
   background: #ffd600;
@@ -1053,5 +1165,120 @@ footer {
   .result-mode .draw-cards {
     padding: 4px 2px;
     gap: 4px;
+  }
+} 
+@keyframes popAndShake {
+  0% {
+    transform: scale(1) rotate(0deg);
+    filter: brightness(1.2);
+  }
+  30% {
+    transform: scale(1.6) rotate(-8deg);
+    filter: brightness(1.5);
+  }
+  50% {
+    transform: scale(1.3) rotate(8deg);
+    filter: brightness(1.3);
+  }
+  70% {
+    transform: scale(1.1) rotate(-4deg);
+    filter: brightness(1.1);
+  }
+  100% {
+    transform: scale(1) rotate(0deg);
+    filter: brightness(1);
+  }
+}
+
+.result-winner-char {
+  display: inline-block;
+  opacity: 0;
+  font-size: 3.2rem;
+  color: #ffd600;
+  text-shadow: 0 2px 8px #000a;
+  animation: popAndShake 0.6s cubic-bezier(.68,-0.55,.27,1.55) forwards;
+} 
+body.draw-active footer,
+body.result-active footer {
+  display: none !important;
+  z-index: -1 !important;
+}
+.draw-mode .end-btn {
+  width: 90px;
+  font-size: 0.85rem;
+  opacity: 0.5;
+  display: block;
+  margin: 80px auto 8px auto;
+  padding: 6px 0;
+  box-sizing: border-box;
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 24px;
+  z-index: 10;
+}
+.draw-mode, .result-mode {
+  min-height: unset !important;
+  margin-top: 0 !important;
+  padding-bottom: 0 !important;
+} 
+.draw-cards, .lucky-cards, .result-mode .draw-cards {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 24px;
+  margin-top: 32px;
+  margin-bottom: 32px;
+}
+.draw-card, .card, .result-mode .draw-card {
+  width: 140px;
+  height: 180px;
+  background: #463a6b;
+  border: 3px solid #ffd600;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 3rem;
+  color: #ffd600;
+  font-weight: bold;
+  box-shadow: 0 2px 16px #ffd60033;
+  position: relative;
+  transition: transform 0.2s;
+}
+.draw-card span, .card span, .result-mode .draw-card span {
+  font-size: 3rem;
+  color: #ffd600;
+  font-weight: bold;
+}
+.draw-mode:not(.drawing) .draw-card span {
+  opacity: 0.3 !important;
+}
+.draw-mode.not-picked .draw-card span {
+  opacity: 0.3 !important;
+}
+@media (max-width: 1200px) {
+  .draw-card, .card, .result-mode .draw-card {
+    width: 90px;
+    height: 110px;
+    font-size: 1.7rem;
+  }
+  .draw-card span, .card span, .result-mode .draw-card span {
+    font-size: 1.7rem;
+  }
+  .draw-cards, .lucky-cards, .result-mode .draw-cards {
+    gap: 10px;
+    margin-top: 18px;
+    margin-bottom: 18px;
+  }
+}
+@media (max-width: 700px) {
+  .draw-card, .card, .result-mode .draw-card {
+    width: 50px;
+    height: 60px;
+    font-size: 1rem;
+  }
+  .draw-card span, .card span, .result-mode .draw-card span {
+    font-size: 1rem;
   }
 } 
