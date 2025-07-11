@@ -11,10 +11,26 @@ document.querySelector('.arrow.right').onclick = function() {
 document.querySelector('.show-btn').onclick = function() {
   document.querySelector('.main-mode').style.display = 'none';
   document.querySelector('.draw-mode').style.display = 'flex';
+  document.body.classList.add('draw-active');
+  document.body.classList.remove('result-active');
+  
+  // Đảm bảo dòng "Đang tìm người may mắn..." được ẩn khi bắt đầu
+  const searchingDiv = document.querySelector('.draw-searching');
+  if (searchingDiv) {
+    searchingDiv.style.display = 'none';
+  }
 };
 document.querySelector('.end-btn').onclick = function() {
   document.querySelector('.draw-mode').style.display = 'none';
   document.querySelector('.main-mode').style.display = 'block';
+  document.body.classList.remove('draw-active');
+  document.body.classList.remove('result-active');
+  
+  // Ẩn dòng "Đang tìm người may mắn..." khi kết thúc
+  const searchingDiv = document.querySelector('.draw-searching');
+  if (searchingDiv) {
+    searchingDiv.style.display = 'none';
+  }
 };
 
 // Modal đổi hình nền
@@ -51,19 +67,20 @@ document.querySelector('.bg-upload-label').onclick = function() {
   bgUpload.click();
 };
 
-bgUpload.onchange = function(e) {
+// Khi upload ảnh nền, tinh chỉnh để ảnh phù hợp khung trình chiếu
+bgUpload && bgUpload.addEventListener('change', function(e) {
   const file = e.target.files[0];
   if (!file) return;
   const reader = new FileReader();
   reader.onload = function(evt) {
-    prevBg = currBg;
-    document.body.style.background = `url('${evt.target.result}') center center/cover no-repeat fixed`;
-    currBg = document.body.style.background;
-    localStorage.setItem('currBg', currBg);
-    bgModal.classList.add('hidden');
+    document.body.style.backgroundImage = `url('${evt.target.result}')`;
+    document.body.style.backgroundSize = 'cover';
+    document.body.style.backgroundPosition = 'center';
+    document.body.style.backgroundRepeat = 'no-repeat';
+    localStorage.setItem('currBg', document.body.style.backgroundImage);
   };
   reader.readAsDataURL(file);
-};
+});
 
 bgDefaultBtn && (bgDefaultBtn.onclick = function() {
   prevBg = currBg;
@@ -284,26 +301,11 @@ eventTitleModal && eventTitleModal.addEventListener('click', function(e) {
 })(); 
 
 // Quay số: mỗi ô draw-card là 1 số của mã thưởng, tên hiển thị bên dưới
-function drawAllCards() {
-  let luckyCodes = JSON.parse(localStorage.getItem('luckyCodes') || '[]');
-  let luckyNames = JSON.parse(localStorage.getItem('luckyNames') || '[]');
+let drawIntervalIds = [];
+let isDrawing = false;
+let lockedIndex = -1;
+function startDrawRandom() {
   let drawCards = document.querySelectorAll('.draw-card');
-  // Random 1 mã thưởng và tên
-  let idx = luckyCodes.length > 0 ? Math.floor(Math.random() * luckyCodes.length) : -1;
-  let code = idx >= 0 ? luckyCodes[idx] : '';
-  let name = (idx >= 0 && idx < luckyNames.length) ? luckyNames[idx] : '';
-  let code6 = code ? code.padStart(6, '0') : '000000';
-  // Hiệu ứng chuyển số
-  let effectDuration = 1500;
-  let interval = 50;
-  let effectIntervals = [];
-  for (let i = 0; i < drawCards.length; i++) {
-    effectIntervals[i] = setInterval(() => {
-      let randDigit = Math.floor(Math.random() * 10).toString();
-      drawCards[i].innerHTML = `<span style='font-size:2.2em;color:#ffd600;'>${randDigit}</span>`;
-    }, interval);
-  }
-  // Hiển thị tên bên dưới dãy số (chỉ 1 lần)
   let nameDiv = document.getElementById('draw-winner-name');
   if (!nameDiv) {
     nameDiv = document.createElement('div');
@@ -312,18 +314,462 @@ function drawAllCards() {
     drawCards[0].parentNode.parentNode.appendChild(nameDiv);
   }
   nameDiv.textContent = '';
-  setTimeout(() => {
-    for (let i = 0; i < drawCards.length; i++) {
-      clearInterval(effectIntervals[i]);
-      drawCards[i].innerHTML = `<span style='font-size:2.2em;color:#ffd600;'>${code6[i] || '0'}</span>`;
+  
+  // Hiển thị dòng "Đang tìm người may mắn..."
+  const searchingDiv = document.querySelector('.draw-searching');
+  if (searchingDiv) {
+    searchingDiv.style.display = 'block';
+  }
+  
+  isDrawing = true;
+  lockedIndex = -1;
+  drawIntervalIds = [];
+  
+  // Tạo hiệu ứng slot machine cho từng ô số
+  for (let i = 0; i < drawCards.length; i++) {
+    // Tạo container cho slot machine
+    const slotContainer = document.createElement('div');
+    slotContainer.className = 'slot-container';
+    slotContainer.style.cssText = `
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    `;
+    
+    // Tạo dãy số cuộn
+    const slotReel = document.createElement('div');
+    slotReel.className = 'slot-reel';
+    slotReel.style.cssText = `
+      display: flex;
+      flex-direction: column;
+      transition: transform 0.03s linear;
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+    `;
+    
+    // Xác định chiều cao dựa trên kích thước màn hình
+    let digitHeight = 140;
+    let fontSize = '2.2em';
+    
+    if (window.innerWidth <= 600) {
+      digitHeight = 50;
+      fontSize = '0.8em';
+    } else if (window.innerWidth <= 900) {
+      digitHeight = 90;
+      fontSize = '1.2em';
     }
-    nameDiv.textContent = name || '';
-    // Hiển thị màn hình công bố kết quả
+    
+    // Tạo infinite scroll với 60 số (30 + 30 duplicate để seamless)
+    const digits = [];
+    for (let j = 0; j < 30; j++) {
+      digits.push(Math.floor(Math.random() * 10).toString());
+    }
+    
+    // Tạo 60 spans với 30 số đầu + 30 số duplicate
+    for (let j = 0; j < 60; j++) {
+      const digitSpan = document.createElement('span');
+      digitSpan.textContent = digits[j % 30];
+      digitSpan.style.cssText = `
+        font-size: ${fontSize};
+        color: #ffd600;
+        font-weight: bold;
+        height: ${digitHeight}px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-shadow: 0 2px 8px #000a;
+        user-select: none;
+      `;
+      slotReel.appendChild(digitSpan);
+    }
+    
+    slotContainer.appendChild(slotReel);
+    drawCards[i].innerHTML = '';
+    drawCards[i].appendChild(slotContainer);
+    
+    // Thêm hiệu ứng fade in cho slot container
+    slotContainer.style.opacity = '0';
+    slotContainer.style.transform = 'scale(0.9)';
+    slotContainer.style.transition = 'all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)';
+    
+    setTimeout(() => {
+      slotContainer.style.opacity = '1';
+      slotContainer.style.transform = 'scale(1)';
+    }, i * 50);
+    
+    // Sử dụng CSS animation thay vì JavaScript interval để mượt hơn
+    const animationDuration = (3 + i * 0.3).toFixed(1); // 3s đến 4.5s
+    slotReel.style.animation = `slotScroll ${animationDuration}s linear infinite`;
+    
+    // Lưu reference để có thể dừng animation
+    drawIntervalIds[i] = slotReel;
+  }
+}
+function stopDrawRandom() {
+  // Dừng tất cả CSS animations
+  drawIntervalIds.forEach(slotReel => {
+    if (slotReel && slotReel.style) {
+      slotReel.style.animation = 'none';
+    }
+  });
+  drawIntervalIds = [];
+  isDrawing = false;
+  
+  // Ẩn dòng "Đang tìm người may mắn..."
+  const searchingDiv = document.querySelector('.draw-searching');
+  if (searchingDiv) {
+    searchingDiv.style.display = 'none';
+  }
+}
+function lockDraw() {
+  // Khi bấm CHỐT, bắt đầu hiệu ứng giảm tốc độ
+  // Phát âm thanh khi bắt đầu giảm tốc độ
+  const spinMusic = document.getElementById('spin-music');
+  if (spinMusic) {
+    spinMusic.play().catch(e => console.log('Audio play failed:', e));
+  }
+  
+  let luckyCodes = JSON.parse(localStorage.getItem('luckyCodes') || '[]');
+  let luckyNames = JSON.parse(localStorage.getItem('luckyNames') || '[]');
+  let drawCards = document.querySelectorAll('.draw-card');
+  let idx = luckyCodes.length > 0 ? Math.floor(Math.random() * luckyCodes.length) : -1;
+  lockedIndex = idx;
+  let code = idx >= 0 ? luckyCodes[idx] : '';
+  let name = (idx >= 0 && idx < luckyNames.length) ? luckyNames[idx] : '';
+  let code6 = code ? code.padStart(6, '0') : '000000';
+  
+  // Bắt đầu hiệu ứng giảm tốc độ từng reel một
+  for (let i = 0; i < drawCards.length; i++) {
+    setTimeout(() => {
+      const slotReel = drawIntervalIds[i];
+      if (slotReel && slotReel.style) {
+        // Thêm hiệu ứng visual feedback khi bắt đầu giảm tốc độ
+        const drawCard = drawCards[i];
+        drawCard.style.boxShadow = '0 0 20px #ffd600, inset 0 0 20px #ffd600';
+        drawCard.style.transform = 'scale(1.05)';
+        drawCard.style.transition = 'all 0.3s ease-out';
+        
+        // Giảm tốc độ dần dần với hiệu ứng slow motion
+        const slowDownDuration = (2 + i * 0.5).toFixed(1); // 2s đến 4.5s
+        slotReel.style.animation = `slotSlowDown ${slowDownDuration}s ease-out infinite`;
+        
+        // Sau khi giảm tốc độ, dừng hẳn và hiển thị kết quả
+        setTimeout(() => {
+          slotReel.style.animation = 'none';
+          
+          // Reset visual feedback
+          drawCard.style.boxShadow = '';
+          drawCard.style.transform = '';
+          drawCard.style.transition = '';
+          
+          // Hiển thị số cuối cùng với hiệu ứng
+          const finalDigit = code6[i] || '0';
+          const resultSpan = document.createElement('span');
+          resultSpan.textContent = finalDigit;
+          
+          // Xác định font size phù hợp với kích thước màn hình
+          let finalFontSize = '2.2em';
+          if (window.innerWidth <= 600) {
+            finalFontSize = '0.8em';
+          } else if (window.innerWidth <= 900) {
+            finalFontSize = '1.2em';
+          }
+          
+          resultSpan.style.cssText = `
+            font-size: ${finalFontSize};
+            color: #ffd600;
+            font-weight: bold;
+            text-shadow: 0 2px 8px #000a;
+            opacity: 0;
+            transform: scale(0.8);
+            transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            height: 100%;
+          `;
+          
+          drawCards[i].innerHTML = '';
+          drawCards[i].appendChild(resultSpan);
+          
+          // Trigger animation với delay nhỏ
+          setTimeout(() => {
+            resultSpan.style.opacity = '1';
+            resultSpan.style.transform = 'scale(1)';
+          }, 100);
+          
+        }, parseFloat(slowDownDuration) * 1000); // Đợi animation chậm kết thúc
+      }
+    }, i * 300); // Bắt đầu giảm tốc độ từng reel với delay 300ms
+  }
+  
+  // Hiển thị màn hình kết quả sau khi tất cả reel đã dừng
+  const totalSlowDownTime = (2 + (drawCards.length - 1) * 0.5) * 1000; // Thời gian giảm tốc độ của reel cuối
+  const totalStopTime = totalSlowDownTime + 500; // Thêm 500ms cho việc hiển thị số cuối
+  setTimeout(() => {
+    stopDrawRandom(); // Dọn dẹp
     showResultScreen(code6, name);
-  }, effectDuration);
+  }, totalStopTime + 1000); // Thêm 1s để người dùng xem kết quả
+}
+// Khai báo nút quay số và nút chốt chỉ một lần
+const drawBtn = document.querySelector('.draw-btn');
+const lockBtn = document.querySelector('.lock-btn');
+if (drawBtn && lockBtn) {
+  drawBtn.addEventListener('click', function() {
+    if (isDrawing) return;
+    document.querySelector('.draw-mode').classList.remove('not-picked');
+    document.querySelector('.draw-mode').classList.add('drawing');
+    startDrawRandom();
+    drawBtn.style.display = 'none';
+    lockBtn.style.display = '';
+  });
+  lockBtn.addEventListener('click', function() {
+    if (!isDrawing) return;
+    lockDraw();
+    lockBtn.style.display = 'none';
+    // drawBtn.style.display = ''; // Không hiện lại nút quay số ở đây
+    document.querySelector('.draw-mode').classList.remove('drawing');
+  });
 }
 
 // Hiển thị màn hình công bố kết quả
+function animateWinnerName(code, name) {
+  const container = document.getElementById('result-winner-name');
+  container.innerHTML = '';
+  const displayText = code + ' - ' + name;
+  [...displayText].forEach((char, i) => {
+    const span = document.createElement('span');
+    span.textContent = char;
+    span.className = 'result-winner-char';
+    span.style.animationDelay = (i * 0.08) + 's';
+    span.style.opacity = '1';
+    if (char === ' ') {
+      span.style.display = 'inline-block';
+      span.style.width = '0.7em';
+      span.innerHTML = '&nbsp;';
+    }
+    container.appendChild(span);
+  });
+}
+// Confetti effect
+function launchConfetti() {
+  const canvas = document.getElementById('confetti-canvas');
+  if (!canvas) return;
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  canvas.style.display = 'block';
+  const ctx = canvas.getContext('2d');
+  const confettiCount = 180;
+  const confetti = [];
+  const colors = ['#ffd600','#ff4081','#40c4ff','#69f0ae','#fff','#ffab00','#e040fb'];
+  for (let i = 0; i < confettiCount; i++) {
+    confetti.push({
+      x: Math.random() * canvas.width,
+      y: Math.random() * -canvas.height,
+      r: 6 + Math.random() * 8,
+      d: 2 + Math.random() * 2,
+      color: colors[Math.floor(Math.random() * colors.length)],
+      tilt: Math.random() * 10 - 10,
+      tiltAngle: 0,
+      tiltAngleInc: 0.05 + Math.random() * 0.07
+    });
+  }
+  let frame = 0;
+  let running = true;
+  function draw() {
+    if (!running) return;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    for (let i = 0; i < confetti.length; i++) {
+      let c = confetti[i];
+      ctx.beginPath();
+      ctx.ellipse(c.x, c.y, c.r, c.r/2, c.tilt, 0, 2 * Math.PI);
+      ctx.fillStyle = c.color;
+      ctx.globalAlpha = 0.85;
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    update();
+    frame++;
+    if (frame < 450) {
+      requestAnimationFrame(draw);
+    } else {
+      running = false;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      canvas.style.display = 'none';
+    }
+  }
+  function update() {
+    for (let i = 0; i < confetti.length; i++) {
+      let c = confetti[i];
+      c.y += c.d + Math.sin(frame/10 + i);
+      c.x += Math.sin(frame/15 + i) * 1.5;
+      c.tilt += c.tiltAngleInc;
+      if (c.y > canvas.height + 20) {
+        c.y = Math.random() * -20;
+        c.x = Math.random() * canvas.width;
+      }
+    }
+  }
+  draw();
+}
+
+// Paper confetti effect from bottom corners
+function launchFireworks() {
+  const canvas = document.getElementById('confetti-canvas');
+  if (!canvas) return;
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  canvas.style.display = 'block';
+  const ctx = canvas.getContext('2d');
+  
+  const confetti = [];
+  const colors = ['#ffd600', '#ff4081', '#40c4ff', '#69f0ae', '#fff', '#ffab00', '#e040fb', '#ff6b35', '#4ecdc4', '#45b7d1'];
+  
+  // Tạo confetti từ góc dưới trái
+  function createConfettiFromLeft() {
+    const x = 0;
+    const y = canvas.height;
+    const angle = Math.PI / 4 + (Math.random() - 0.5) * Math.PI / 6; // 45° ± 15°
+    const velocity = 8 + Math.random() * 6;
+    
+    return {
+      x: x,
+      y: y,
+      vx: Math.cos(angle) * velocity,
+      vy: -Math.sin(angle) * velocity,
+      color: colors[Math.floor(Math.random() * colors.length)],
+      size: 8 + Math.random() * 12,
+      rotation: Math.random() * Math.PI * 2,
+      rotationSpeed: (Math.random() - 0.5) * 0.3,
+      type: Math.random() < 0.5 ? 'square' : 'circle',
+      life: 1,
+      decay: 0.008 + Math.random() * 0.004
+    };
+  }
+  
+  // Tạo confetti từ góc dưới phải
+  function createConfettiFromRight() {
+    const x = canvas.width;
+    const y = canvas.height;
+    const angle = 3 * Math.PI / 4 + (Math.random() - 0.5) * Math.PI / 6; // 135° ± 15°
+    const velocity = 8 + Math.random() * 6;
+    
+    return {
+      x: x,
+      y: y,
+      vx: Math.cos(angle) * velocity,
+      vy: -Math.sin(angle) * velocity,
+      color: colors[Math.floor(Math.random() * colors.length)],
+      size: 8 + Math.random() * 12,
+      rotation: Math.random() * Math.PI * 2,
+      rotationSpeed: (Math.random() - 0.5) * 0.3,
+      type: Math.random() < 0.5 ? 'square' : 'circle',
+      life: 1,
+      decay: 0.008 + Math.random() * 0.004
+    };
+  }
+  
+  let frame = 0;
+  let running = true;
+  
+  function draw() {
+    if (!running) return;
+    
+    // Xóa canvas sạch sẽ để chỉ hiển thị confetti
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // Tạo confetti mới từ cả hai góc
+    if (frame % 3 === 0) {
+      confetti.push(createConfettiFromLeft());
+      confetti.push(createConfettiFromRight());
+    }
+    
+    // Vẽ confetti
+    for (let i = confetti.length - 1; i >= 0; i--) {
+      const piece = confetti[i];
+      
+      ctx.save();
+      ctx.translate(piece.x, piece.y);
+      ctx.rotate(piece.rotation);
+      ctx.globalAlpha = piece.life;
+      
+      if (piece.type === 'square') {
+        // Vẽ hình vuông (giấy vuông)
+        ctx.fillStyle = piece.color;
+        ctx.fillRect(-piece.size/2, -piece.size/2, piece.size, piece.size);
+        
+        // Thêm viền nhẹ
+        ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(-piece.size/2, -piece.size/2, piece.size, piece.size);
+      } else {
+        // Vẽ hình tròn (giấy tròn)
+        ctx.fillStyle = piece.color;
+        ctx.beginPath();
+        ctx.arc(0, 0, piece.size/2, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Thêm viền nhẹ
+        ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      }
+      
+      ctx.restore();
+      
+      // Update confetti position
+      piece.x += piece.vx;
+      piece.y += piece.vy;
+      piece.vy += 0.15; // Gravity
+      piece.rotation += piece.rotationSpeed;
+      piece.life -= piece.decay;
+      
+      // Thêm hiệu ứng bay theo gió
+      piece.vx += (Math.random() - 0.5) * 0.2;
+      
+      // Remove dead confetti
+      if (piece.life <= 0 || piece.y > canvas.height + 50) {
+        confetti.splice(i, 1);
+      }
+    }
+    
+    frame++;
+    if (frame < 300) {
+      requestAnimationFrame(draw);
+    } else {
+      running = false;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      canvas.style.display = 'none';
+    }
+  }
+  
+  draw();
+}
+
+// Tăng hiệu ứng nổi bật cho tên người may mắn
+const style = document.createElement('style');
+style.innerHTML = `
+#result-winner-name {
+  position: relative;
+  z-index: 1000;
+  padding: 12px 32px;
+  border-radius: 18px;
+  background: rgba(34,34,58,0.7);
+  box-shadow: 0 0 32px 8px #ffd60099, 0 2px 24px #000a;
+  border: 3px solid #ffd600;
+  filter: drop-shadow(0 0 16px #ffd600cc);
+}
+`;
+document.head.appendChild(style);
+
+// Gọi confetti khi hiện kết quả
 function showResultScreen(code6, name) {
   // Ẩn draw-mode, hiện result-mode
   document.querySelector('.draw-mode').style.display = 'none';
@@ -342,8 +788,8 @@ function showResultScreen(code6, name) {
     div.innerHTML = `<span style='font-size:2.2em;color:#fff;font-weight:bold;'>${code6[i] || '0'}</span>`;
     resultCards.appendChild(div);
   }
-  // Hiển thị tên
-  document.getElementById('result-winner-name').textContent = name || '';
+  // Hiển thị mã - tên
+  animateWinnerName(code6.join ? code6.join('') : code6, name || '');
   // Hiển thị giải thưởng và icon
   const prizes = JSON.parse(localStorage.getItem('prizes') || '[]');
   let prizeLabel = document.querySelector('.draw-mode .prize-label');
@@ -352,6 +798,17 @@ function showResultScreen(code6, name) {
   document.getElementById('result-prize-label').textContent = prizeName;
   // Hiển thị icon badge
   document.getElementById('result-badge').textContent = prizeObj && prizeObj.icon ? prizeObj.icon : '';
+  playMusic(resultMusic);
+  
+  // Delay nhỏ để đồng bộ với âm thanh và tạo hiệu ứng pháo hoa giấy
+  setTimeout(() => {
+    launchFireworks(); // Pháo hoa giấy từ 2 góc dưới
+  }, 300);
+  // Xóa hoặc ẩn tiêu đề VÒNG QUAY MAY MẮN ở result-mode nếu có
+  const extraTitle = resultMode.querySelector('.main-title');
+  if (extraTitle) extraTitle.style.display = 'none';
+  document.body.classList.remove('draw-active');
+  document.body.classList.add('result-active');
 }
 // Nút xác nhận/quay lại
 const resultConfirmBtn = document.querySelector('.result-confirm-btn');
@@ -383,12 +840,22 @@ if (resultConfirmBtn) {
     // Quay lại trang draw-mode để bắt đầu quay tiếp
     document.querySelector('.result-mode').style.display = 'none';
     document.querySelector('.draw-mode').style.display = 'flex';
+    drawBtn.style.display = '';
+    document.body.classList.remove('result-active');
+    document.body.classList.add('draw-active');
+    document.querySelector('.draw-mode').classList.remove('drawing');
+    updateDrawCardsWithPrizeIcon();
   };
 }
 if (resultBackBtn) {
   resultBackBtn.onclick = function() {
     document.querySelector('.result-mode').style.display = 'none';
     document.querySelector('.draw-mode').style.display = 'flex';
+    drawBtn.style.display = '';
+    document.body.classList.remove('result-active');
+    document.body.classList.add('draw-active');
+    document.querySelector('.draw-mode').classList.remove('drawing');
+    updateDrawCardsWithPrizeIcon();
   };
 }
 
@@ -440,10 +907,9 @@ if (resultConfirmBtn) {
 }
 
 // Gán sự kiện cho nút draw-btn ngoài draw-mode
-const drawBtn = document.querySelector('.draw-btn');
-drawBtn && drawBtn.addEventListener('click', function() {
-  drawAllCards();
-});
+// drawBtn && drawBtn.addEventListener('click', function() { // This line was removed as per the edit hint
+//   drawAllCards();
+// });
 
 // Lucky List Modal Logic
 (function() {
@@ -670,19 +1136,28 @@ drawBtn && drawBtn.addEventListener('click', function() {
 })(); 
 
 // ==== Draw Cards Show Prize Icon Instead of Number ====
+// Hiển thị icon giải thưởng trong các ô draw-card khi draw-mode chưa quay
 function updateDrawCardsWithPrizeIcon() {
-  const cards = document.querySelectorAll('.draw-card');
-  // Lấy icon của giải hiện tại
-  let prizes = JSON.parse(localStorage.getItem('prizes'));
-  let idx = parseInt(localStorage.getItem('currentPrizeIdx'), 10);
-  if (!prizes || !prizes.length) return;
-  if (isNaN(idx) || idx < 0 || idx >= prizes.length) idx = 0;
-  let icon = prizes[idx].icon || '';
-  cards.forEach(card => {
-    card.textContent = icon;
-    card.classList.add('prize-icon-card');
+  const prizes = JSON.parse(localStorage.getItem('prizes') || '[]');
+  const currentPrizeIdx = parseInt(localStorage.getItem('currentPrizeIdx') || '0', 10);
+  const icon = prizes[currentPrizeIdx]?.icon || '🎁';
+  let allIcon = true;
+  document.querySelectorAll('.draw-mode .draw-card').forEach(card => {
+    card.innerHTML = `<span>${icon}</span>`;
+    if (card.textContent !== icon) allIcon = false;
   });
+  document.querySelector('.draw-mode').classList.add('not-picked');
 }
+// Gọi hàm này khi vào draw-mode và khi chuyển giải
+const showBtn = document.querySelector('.show-btn');
+showBtn && showBtn.addEventListener('click', function() {
+  updateDrawCardsWithPrizeIcon();
+});
+document.querySelectorAll('.draw-mode .arrow.left, .draw-mode .arrow.right').forEach(btn => {
+  btn.addEventListener('click', function() {
+    setTimeout(updateDrawCardsWithPrizeIcon, 10);
+  });
+});
 // Gọi hàm này khi vào draw-mode và result-mode
 function observeDrawMode() {
   const main = document.querySelector('main');
@@ -694,3 +1169,46 @@ function observeDrawMode() {
   observer.observe(main, { attributes: true, attributeFilter: ['class'] });
 }
 observeDrawMode(); 
+
+// Music control
+const bgMusic = document.getElementById('bg-music');
+const spinMusic = document.getElementById('spin-music');
+const resultMusic = document.getElementById('result-music');
+
+function playMusic(music) {
+  [bgMusic, spinMusic, resultMusic].forEach(m => { if (m && !m.paused) m.pause(); m && (m.currentTime = 0); });
+  if (music) {
+    music.currentTime = 0;
+    music.play();
+  }
+}
+
+// Phát nhạc nền khi vào trang
+window.addEventListener('DOMContentLoaded', function() {
+  if (bgMusic) {
+    bgMusic.volume = 0.4;
+    bgMusic.play().catch(()=>{});
+  }
+});
+
+// Khi bấm nút quay số
+if (drawBtn) {
+  drawBtn.addEventListener('click', function() {
+    playMusic(spinMusic);
+  });
+}
+
+// Khi hiện kết quả
+// (Đã gọi playMusic(resultMusic) trong showResultScreen)
+
+// Khi quay lại draw-mode hoặc xác nhận, phát lại nhạc nền
+if (resultConfirmBtn) {
+  resultConfirmBtn.addEventListener('click', function() {
+    playMusic(bgMusic);
+  });
+}
+if (resultBackBtn) {
+  resultBackBtn.addEventListener('click', function() {
+    playMusic(bgMusic);
+  });
+} 
