@@ -9,7 +9,11 @@
   <header>
     <div class="main-header">
       <span class="dot"></span>
-      <h1 class="main-title">VÒNG QUAY MAY MẮN</h1><input type="color" id="titleColorPicker" style="display:none; margin-left:12px; vertical-align:middle;" />
+      <h1 class="main-title">
+        <span class="main-title-text">VÒNG QUAY MAY MẮN CÙNG 5DÊ FIPO</span>
+        <span class="icon-edit" id="edit-title-btn" style="cursor:pointer; font-size:1.2rem; vertical-align:middle;">✎</span>
+      </h1>
+      <input type="color" id="titleColorPicker" style="display:none; margin-left:12px; vertical-align:middle;" />
     </div>
   </header>
   <main>
@@ -174,9 +178,41 @@
     </div>
   </div>
   <canvas id="confetti-canvas" style="position:fixed;top:0;left:0;width:100vw;height:100vh;pointer-events:none;z-index:999;display:none;"></canvas>
-  <audio id="bg-music" src="bg-music.mp3" loop preload="auto" style="display:none"></audio>
-  <audio id="spin-music" src="spin-music.mp3" preload="auto" style="display:none"></audio>
-  <audio id="result-music" src="result-music.mp3" preload="auto" style="display:none"></audio>
+  <audio id="bg-music" src="sound/bg-music.mp3" loop preload="auto" style="display:none"></audio>
+  <audio id="spin-start" src="sound/spin-start.mp3" preload="auto" style="display:none"></audio>
+  <audio id="rolling" src="sound/rolling.mp3" preload="auto" style="display:none"></audio>
+  <audio id="slot-stop" src="sound/slot-stop.mp3" preload="auto" style="display:none"></audio>
+  <audio id="result-fanfare" src="sound/result-fanfare.mp3" preload="auto" style="display:none"></audio>
+  <audio id="save" src="sound/save.mp3" preload="auto" style="display:none"></audio>
+  <audio id="back" src="sound/back.mp3" preload="auto" style="display:none"></audio>
+  <audio id="spin-music" src="sound/spin-music.mp3" preload="auto" style="display:none"></audio>
+  <audio id="result-music" src="sound/result-music.mp3" preload="auto" style="display:none"></audio>
+  <!-- Theme Picker Modal -->
+  <div id="theme-modal" class="theme-modal hidden">
+    <div class="theme-modal-content">
+      <div class="theme-modal-header">
+        <span>🎨 LuckyDraw Theme</span>
+        <span class="theme-modal-close" style="cursor:pointer;font-size:1.3rem;font-weight:bold;">&times;</span>
+      </div>
+      <div class="theme-modal-desc">Thay đổi màu sắc phù hợp với thương hiệu, sự kiện của bạn</div>
+      <div class="theme-grid">
+        <div class="theme-item" data-theme="purple" style="background:#463a6b;"><span>Tím</span></div>
+        <div class="theme-item" data-theme="navy" style="background:#0d2240;"><span>Xanh Navy</span></div>
+        <div class="theme-item" data-theme="olive" style="background:#20bfa9;"><span>Màu Olive</span></div>
+        <div class="theme-item" data-theme="orange" style="background:#ffb300;"><span>Cam</span></div>
+        <div class="theme-item" data-theme="black" style="background:#222328;"><span>Đen</span></div>
+        <div class="theme-item" data-theme="sky" style="background:#40c4ff;"><span>Xanh Da Trời</span></div>
+        <div class="theme-item" data-theme="green" style="background:#2ecc71;"><span>Xanh Lá Cây</span></div>
+        <div class="theme-item" data-theme="red" style="background:#c62828;"><span>Đỏ</span></div>
+        <div class="theme-item" data-theme="silver" style="background:#e0e0e0;"><span>Bạc</span></div>
+        <div class="theme-item" data-theme="aqua" style="background:#a7e9fb;"><span>Màu Aqua</span></div>
+        <div class="theme-item" data-theme="yellow" style="background:#ffe066;"><span>Vàng</span></div>
+        <div class="theme-item" data-theme="white" style="background:#fff;"><span>Trắng</span></div>
+      </div>
+    </div>
+  </div>
+  <!-- Nút mở modal theme -->
+  <button id="theme-btn" style="position:fixed;top:18px;right:24px;z-index:2000;background:#ffd600;color:#22223a;font-weight:bold;padding:8px 18px;border:none;border-radius:8px;box-shadow:0 2px 12px #ffd60055;cursor:pointer;">🎨 Chủ đề</button>
   <script src="script.js"></script>
 </body>
 </html> 
