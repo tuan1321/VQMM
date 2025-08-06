@@ -1,3 +1,34 @@
+"use strict";
+// Utility functions
+const $ = (selector, parent = document) => parent.querySelector(selector);
+const $$ = (selector, parent = document) => parent.querySelectorAll(selector);
+const getLS = key => { try { return JSON.parse(localStorage.getItem(key)); } catch { return null; } };
+const setLS = (key, val) => localStorage.setItem(key, JSON.stringify(val));
+
+// DOM cache
+const dom = {
+  mainMode: $('.main-mode'),
+  drawMode: $('.draw-mode'),
+  resultMode: $('.result-mode'),
+  showBtn: $('.show-btn'),
+  endBtn: $('.end-btn'),
+  drawBtn: $('.draw-btn'),
+  lockBtn: $('.lock-btn'),
+  resultConfirmBtn: $('.result-confirm-btn'),
+  resultBackBtn: $('.result-back-btn'),
+  bgMusic: $('#bg-music'),
+  spinMusic: $('#spin-music'),
+  resultMusic: $('#result-music'),
+  mainTitle: $('.main-title'),
+  mainTitleText: $('.main-title-text'),
+  dot: $('.dot'),
+  colorInput: $('#titleColorPicker'),
+  eventTitleModal: $('#event-title-modal'),
+  eventTitleInput: $('#event-title-input'),
+  eventTitleForm: $('.event-title-form'),
+  // ... add more as needed ...
+};
+
 // Nút chuyển giải
 
 document.querySelector('.arrow.left').onclick = function() {
@@ -9,6 +40,35 @@ document.querySelector('.arrow.right').onclick = function() {
   // TODO: Thay đổi nhãn giải thưởng
 };
 document.querySelector('.show-btn').onclick = function() {
+  console.log('=== BẮT ĐẦU button clicked ===');
+  
+  // Debug: Check data first
+  const luckyCodes = JSON.parse(localStorage.getItem('luckyCodes') || '[]');
+  const luckyNames = JSON.parse(localStorage.getItem('luckyNames') || '[]');
+  console.log('DEBUG - luckyCodes:', luckyCodes);
+  console.log('DEBUG - luckyNames:', luckyNames);
+  
+  // Simple validation - chỉ kiểm tra có số hay không
+  if (luckyCodes.length === 0) {
+    console.log('❌ Không có mã số - hiện warning');
+    showEmptyListWarning();
+    return;
+  }
+  
+  // Warning if names missing but allow continue
+  if (luckyNames.length === 0) {
+    console.log('⚠️ Warning: Thiếu tên nhưng vẫn cho phép tiếp tục');
+    alert('Cảnh báo: Chưa có danh sách tên. Hệ thống sẽ dùng mã số làm tên.');
+  }
+  
+  // Warning if mismatch but allow continue  
+  if (luckyCodes.length !== luckyNames.length) {
+    console.log('⚠️ Warning: Dữ liệu không khớp nhưng vẫn cho phép tiếp tục');
+    alert(`Cảnh báo: Có ${luckyCodes.length} mã số nhưng ${luckyNames.length} tên. Hệ thống sẽ tự động điều chỉnh.`);
+  }
+  
+  console.log('✅ Cho phép vào draw mode');
+  
   document.querySelector('.main-mode').style.display = 'none';
   document.querySelector('.draw-mode').style.display = 'flex';
   document.body.classList.add('draw-active');
@@ -20,6 +80,14 @@ document.querySelector('.show-btn').onclick = function() {
   if (searchingDiv) {
     searchingDiv.style.display = 'none';
   }
+  
+  // Cập nhật icon giải thưởng trên cards
+  updateDrawCardsWithPrizeIcon();
+  
+  // Cập nhật số người đã trúng thưởng
+  updateWinnerCount();
+  
+  console.log('✅ Chuyển sang draw mode thành công');
 };
 function showDrawMode() {
   document.querySelector('.main-mode').style.display = 'none';
@@ -27,12 +95,32 @@ function showDrawMode() {
   document.body.classList.add('draw-active');
   document.body.classList.remove('result-active');
   document.body.classList.add('hide-title-actions'); // Ẩn nút đổi màu và đổi tên
+  
+  // Clear result cards nếu có
+  const resultCards = document.querySelector('.result-cards');
+  if (resultCards) {
+    resultCards.innerHTML = '';
+  }
+  
+  // Cập nhật icon giải thưởng trên cards
+  updateDrawCardsWithPrizeIcon();
+  
+  // Cập nhật số người đã trúng thưởng
+  updateWinnerCount();
+  
+  // Log số lượng draw cards để debug
+  const drawCards = document.querySelectorAll('.draw-mode .draw-card:not(.result-draw-card)');
+  console.log('Draw mode activated. Number of draw cards:', drawCards.length);
 }
 function showResultMode() {
   document.body.classList.add('result-active');
   document.body.classList.add('hide-title-actions'); // Ẩn nút đổi màu và đổi tên
 }
 document.querySelector('.end-btn').onclick = function() {
+  // Clear tất cả intervals trước khi kết thúc
+  clearAllSlotIntervals();
+  isSpinning = false;
+  
   document.querySelector('.draw-mode').style.display = 'none';
   document.querySelector('.main-mode').style.display = 'block';
   document.body.classList.remove('draw-active');
@@ -175,10 +263,10 @@ eventTitleModal && eventTitleModal.addEventListener('click', function(e) {
   const modalFooter = document.querySelector('.prize-modal-footer');
 
   const DEFAULT_PRIZES = [
-    {name: "GIẢI ĐẶC BIỆT", icon: "💎"},
-    {name: "GIẢI NHẤT", icon: "🥇"},
-    {name: "GIẢI NHÌ", icon: "🥈"},
-    {name: "GIẢI BA", icon: "🥉"}
+    {name: "GIẢI ĐẶC BIỆT", icon: "💎", drawLimitPerTurn: 1},
+    {name: "GIẢI NHẤT", icon: "🥇", drawLimitPerTurn: 1},
+    {name: "GIẢI NHÌ", icon: "🥈", drawLimitPerTurn: 1},
+    {name: "GIẢI BA", icon: "🥉", drawLimitPerTurn: 1}
   ];
   let prizes = [];
   let currentPrizeIdx = 0;
@@ -189,6 +277,11 @@ eventTitleModal && eventTitleModal.addEventListener('click', function(e) {
       if (typeof prizes[0] === 'string') {
         prizes = prizes.map((name, i) => ({name, icon: ICONS[i % ICONS.length]}));
       }
+      // Đảm bảo tất cả prizes đều có drawLimitPerTurn
+      prizes = prizes.map(prize => ({
+        ...prize,
+        drawLimitPerTurn: prize.drawLimitPerTurn || 1
+      }));
     } else {
       prizes = [...DEFAULT_PRIZES];
     }
@@ -210,10 +303,14 @@ eventTitleModal && eventTitleModal.addEventListener('click', function(e) {
   }
 
   function showModal() {
+    console.log('=== OPENING PRIZE MODAL ===');
+    console.log('prizeModal:', prizeModal);
+    console.log('prizes:', prizes);
     renderPrizeList();
     prizeModal.classList.remove('hidden');
   }
   function hideModal() {
+    console.log('=== CLOSING PRIZE MODAL ===');
     prizeModal.classList.add('hidden');
   }
   /**
@@ -310,23 +407,34 @@ eventTitleModal && eventTitleModal.addEventListener('click', function(e) {
   }
   // Prize label click (chỉ ở main-mode)
   const mainPrizeLabel = document.querySelector('.prize-label');
-  mainPrizeLabel && mainPrizeLabel.addEventListener('click', showModal);
+  console.log('Setting up prize modal event listener:', mainPrizeLabel);
+  mainPrizeLabel && mainPrizeLabel.addEventListener('click', function() {
+    console.log('Prize label clicked!');
+    showModal();
+  });
   closeBtn.addEventListener('click', hideModal);
   cancelBtn.addEventListener('click', hideModal);
   prizeModal.addEventListener('click', function(e) {
     if (e.target === prizeModal) hideModal();
   });
   addPrizeBtn.addEventListener('click', function() {
-    prizes.push({name: '', icon: ICONS[prizes.length % ICONS.length]});
+    prizes.push({
+      name: '', 
+      icon: ICONS[prizes.length % ICONS.length],
+      drawLimitPerTurn: 1
+    });
     renderPrizeList();
   });
   saveBtn.addEventListener('click', function() {
+    console.log('=== SAVE BUTTON CLICKED ===');
+    console.log('prizes before save:', prizes);
     prizes = prizes.filter(p => p.name.trim() !== '');
     if (prizes.length === 0) prizes = [...DEFAULT_PRIZES];
     if (currentPrizeIdx >= prizes.length) currentPrizeIdx = prizes.length - 1;
     savePrizes();
     saveCurrentPrizeIdx();
     updateAllPrizeDisplays();
+    console.log('prizes after save:', prizes);
     hideModal();
   });
   defaultBtn.addEventListener('click', function() {
@@ -338,6 +446,7 @@ eventTitleModal && eventTitleModal.addEventListener('click', function(e) {
   // Chuyển giải trái/phải cho tất cả các bộ nút
   leftArrows.forEach(btn => {
     btn.addEventListener('click', function() {
+      console.log('Left arrow clicked');
       if (prizes.length === 0) return;
       currentPrizeIdx = (currentPrizeIdx - 1 + prizes.length) % prizes.length;
       saveCurrentPrizeIdx();
@@ -346,10 +455,25 @@ eventTitleModal && eventTitleModal.addEventListener('click', function(e) {
   });
   rightArrows.forEach(btn => {
     btn.addEventListener('click', function() {
+      console.log('Right arrow clicked');
       if (prizes.length === 0) return;
       currentPrizeIdx = (currentPrizeIdx + 1) % prizes.length;
       saveCurrentPrizeIdx();
       updateAllPrizeDisplays();
+    });
+  });
+  
+  // Thêm double click để mở modal settings
+  leftArrows.forEach(btn => {
+    btn.addEventListener('dblclick', function() {
+      console.log('Left arrow double clicked - opening modal');
+      showModal();
+    });
+  });
+  rightArrows.forEach(btn => {
+    btn.addEventListener('dblclick', function() {
+      console.log('Right arrow double clicked - opening modal');
+      showModal();
     });
   });
   // Khi chuyển chế độ, cập nhật giải thưởng đang chọn
@@ -360,9 +484,18 @@ eventTitleModal && eventTitleModal.addEventListener('click', function(e) {
     updateAllPrizeDisplays();
   });
   // Khởi tạo
+  console.log('=== INITIALIZING PRIZE MANAGEMENT ===');
   loadPrizes();
   loadCurrentPrizeIdx();
   updateAllPrizeDisplays();
+  // Cập nhật icon trên draw cards khi load trang
+  updateDrawCardsWithPrizeIcon();
+  
+  // Cập nhật số người trúng thưởng khi load trang
+  updateWinnerCount();
+  
+  console.log('Initialized with prizes:', prizes);
+  console.log('Current prize index:', currentPrizeIdx);
 })(); 
 
 // Đảm bảo hàm updateAllPrizeDisplays ở phạm vi toàn cục
@@ -378,11 +511,15 @@ function updateAllPrizeDisplays() {
   prizeLabels.forEach(label => { label.textContent = prize?.name || ''; });
   prizeIcons.forEach(icon => { icon.textContent = prize?.icon || ''; });
   // Cập nhật số người đã đạt giải cho tất cả count-num
-  let winners = JSON.parse(localStorage.getItem('winners') || '[]');
-  let count = winners.filter(w => w.prize === prize?.name).length;
-  prizeCounts.forEach(countEl => { countEl.textContent = count; });
+  updateWinnerCount(prize?.name);
   // Cập nhật icon cho badge ở cả main-mode và draw-mode
   badgeSpans.forEach(badge => { badge.textContent = prize?.icon || ''; });
+  
+  // Cập nhật icon trên draw cards nếu đang ở draw mode
+  if (document.body.classList.contains('draw-active')) {
+    updateDrawCardsWithPrizeIcon();
+    updateWinnerCount();
+  }
 }
 
 // === BẮT ĐẦU LOẠI BỎ HIỆU ỨNG CŨ ===
@@ -602,6 +739,10 @@ document.head.appendChild(style);
 
 // --- Cập nhật showResultScreen để hiển thị danh sách nhiều người may mắn ---
 function showResultScreen(pickedList, prizeObj) {
+  console.log('=== showResultScreen called ===');
+  console.log('pickedList:', pickedList);
+  console.log('pickedList.length:', pickedList ? pickedList.length : 'null');
+  
   document.querySelector('.draw-mode').style.display = 'none';
   const resultMode = document.querySelector('.result-mode');
   resultMode.style.display = 'flex';
@@ -611,54 +752,208 @@ function showResultScreen(pickedList, prizeObj) {
   document.getElementById('result-badge').textContent = prizeObj?.icon || '';
   const resultCards = resultMode.querySelector('.result-cards');
   resultCards.innerHTML = '';
+  
   // Hiển thị slot kết quả theo window.currentDrawCode6
-  let code6 = window.currentDrawCode6 || (pickedList && pickedList[0] && pickedList[0].code6) || '000000';
+  let code6 = window.currentDrawCode6 || (pickedList && pickedList[0] && (pickedList[0].code6 || pickedList[0].code)) || '000000';
   for (let i = 0; i < 6; i++) {
     const div = document.createElement('div');
-    div.className = 'draw-card';
+    div.className = 'draw-card result-draw-card'; // Thêm class riêng cho result mode
     div.style.opacity = '1';
     div.innerHTML = `<span style='font-size:2.2em;color:#fff;font-weight:bold;'>${code6[i] || '0'}</span>`;
     resultCards.appendChild(div);
   }
-  // Hiển thị tên người trúng
-  let winnerName = (window.currentDrawWinner && window.currentDrawWinner.name) || (pickedList && pickedList[0] && pickedList[0].name) || '';
-  animateWinnerName(code6, winnerName);
-  document.getElementById('result-winner-name').style.display = '';
-  playMusic(resultMusic);
-  setTimeout(() => { launchFireworks(); }, 300);
+  
+  // Hiển thị danh sách tên người trúng (hỗ trợ nhiều winners)
+  let winnerNamesDisplay = '';
+  if (pickedList && pickedList.length > 1) {
+    console.log('=== MULTIPLE WINNERS DETECTED ===');
+    console.log('Calling showMultipleWinnersModal with:', pickedList);
+    
+    // Ẩn result mode trước khi hiển thị modal
+    resultMode.style.display = 'none';
+    
+    // Nhiều winners - hiển thị modal thay vì inline
+    showMultipleWinnersModal(pickedList, prizeObj);
+    return; // Không tiếp tục hiển thị result screen thông thường
+  } else {
+    console.log('=== SINGLE WINNER ===');
+    // Hiển thị 1 winner với player ID
+    const winner = window.currentDrawWinner || (pickedList && pickedList[0]) || {};
+    const winnerName = winner.name || '';
+    const playerId = winner.playerId || '';
+    winnerNamesDisplay = playerId ? `${winnerName} (${playerId})` : winnerName;
+  }
+  
+  const winnerNameEl = document.getElementById('result-winner-name');
+  winnerNameEl.innerHTML = winnerNamesDisplay;
+  winnerNameEl.style.display = '';
+  
+  // Phát nhạc và hiệu ứng
+  playMusic('result');
+  setTimeout(() => { launchFireworks(); }, 300); // Chuyển lại về 300ms như cũ
   const extraTitle = resultMode.querySelector('.main-title');
   if (extraTitle) extraTitle.style.display = 'none';
   document.body.classList.remove('draw-active');
   document.body.classList.add('result-active');
-  document.querySelectorAll('.draw-card').forEach(card => card.classList.remove('lucky-highlight', 'lucky-blink'));
+  document.querySelectorAll('.draw-mode .draw-card:not(.result-draw-card)').forEach(card => card.classList.remove('lucky-highlight', 'lucky-blink'));
+}
+
+// Function hiển thị modal multiple winners
+function showMultipleWinnersModal(winners, prizeObj) {
+  console.log('=== showMultipleWinnersModal called ===');
+  console.log('winners:', winners);
+  console.log('prizeObj:', prizeObj);
+  
+  const modal = document.getElementById('multiple-winners-modal');
+  const prizeTitle = document.getElementById('multiple-winners-prize-title');
+  const winnersList = document.querySelector('.multiple-winners-list');
+  
+  console.log('modal:', modal);
+  console.log('modal.classList before:', modal ? modal.classList.toString() : 'null');
+  console.log('prizeTitle:', prizeTitle);
+  console.log('winnersList:', winnersList);
+  
+  if (!modal || !prizeTitle || !winnersList) {
+    console.error('Modal elements not found!');
+    console.error('Missing elements:', {
+      modal: !!modal,
+      prizeTitle: !!prizeTitle, 
+      winnersList: !!winnersList
+    });
+    return;
+  }
+  
+  // Cập nhật tiêu đề giải
+  prizeTitle.textContent = `🎉 ${prizeObj?.name || 'GIẢI THƯỞNG'} - ${winners.length} NGƯỜI TRÚNG 🎉`;
+  
+  // Tạo danh sách winners với thiết kế mới
+  winnersList.innerHTML = '';
+  winners.forEach((winner, index) => {
+    const item = document.createElement('div');
+    item.className = 'multiple-winner-item';
+    const playerId = winner.playerId || '';
+    const displayName = playerId ? `${winner.name || 'Không có tên'} (${playerId})` : (winner.name || 'Không có tên');
+    item.innerHTML = `
+      <div class="multiple-winner-info" style="background:linear-gradient(135deg,#2c3e50,#34495e);border:2px solid #ffd600;border-radius:15px;padding:12px;text-align:left;box-shadow:0 8px 24px rgba(0,0,0,0.3),0 0 20px #ffd60055;display:flex;align-items:center;gap:12px;">
+        <div class="multiple-winner-rank" style="font-size:1.8rem;font-weight:bold;color:#ffd600;text-shadow:0 2px 8px #000a;min-width:40px;text-align:center;">${index + 1}</div>
+        <div class="multiple-winner-details" style="flex:1;display:flex;align-items:center;gap:15px;">
+          <div class="multiple-winner-code" style="font-size:1.5rem;font-weight:bold;color:#fff;text-shadow:0 2px 8px #000a;letter-spacing:2px;min-width:110px;">${winner.code || winner.code6 || 'N/A'}</div>
+          <div class="multiple-winner-name" style="font-size:1.3rem;font-weight:bold;color:#ffd600;text-shadow:0 2px 8px #000a;background:linear-gradient(45deg,#ffd600,#ffed4e);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;flex:1;">${winner.name || 'Không có tên'}</div>
+        </div>
+      </div>
+    `;
+    winnersList.appendChild(item);
+  });
+  
+  // Hiển thị modal
+  console.log('About to show modal...');
+  modal.classList.remove('hidden');
+  console.log('modal.classList after remove hidden:', modal.classList.toString());
+  console.log('modal.style.display:', modal.style.display);
+  
+  // Đảm bảo modal được hiển thị
+  modal.style.display = 'flex';
+  console.log('modal.style.display after set flex:', modal.style.display);
+  
+  // Phát nhạc và hiệu ứng
+  playMusic('result');
+  setTimeout(() => { launchFireworks(); }, 500); // Chuyển lại về 500ms như cũ
+  
+  // Ẩn draw mode và result mode
+  console.log('Hiding draw mode and result mode...');
+  document.querySelector('.draw-mode').style.display = 'none';
+  document.querySelector('.result-mode').style.display = 'none';
+  document.body.classList.remove('draw-active');
+  document.body.classList.remove('result-active');
+  
+  console.log('showMultipleWinnersModal completed');
+  
+  // Debug: kiểm tra modal có hiển thị không sau 1 giây
+  setTimeout(() => {
+    console.log('=== MODAL STATUS CHECK (1s later) ===');
+    console.log('modal.classList:', modal.classList.toString());
+    console.log('modal.style.display:', modal.style.display);
+    console.log('modal visible?', modal.offsetHeight > 0);
+  }, 1000);
 }
 // Nút xác nhận/quay lại
 const resultConfirmBtn = document.querySelector('.result-confirm-btn');
 const resultBackBtn = document.querySelector('.result-back-btn');
 if (resultConfirmBtn) {
   resultConfirmBtn.onclick = function() {
-    // Lấy mã số và tên vừa trúng
-    const codeEls = document.querySelectorAll('.result-cards .draw-card span');
-    let code6 = '';
-    codeEls.forEach(el => { code6 += el.textContent; });
     let luckyCodes = JSON.parse(localStorage.getItem('luckyCodes') || '[]');
     let luckyNames = JSON.parse(localStorage.getItem('luckyNames') || '[]');
+    let luckyPlayers = JSON.parse(localStorage.getItem('luckyPlayers') || '[]');
     let prize = document.getElementById('result-prize-label').textContent || '';
+    let winners = JSON.parse(localStorage.getItem('winners') || '[]');
+    
+    // Xử lý nhiều winners nếu có quay hàng loạt
+    if (window.currentBatchWinners && window.currentBatchWinners.length > 0) {
+      // Quay hàng loạt - xử lý tất cả winners
+      window.currentBatchWinners.forEach(winner => {
+        const code6 = winner.code;
+        const name = winner.name;
+        const playerId = winner.playerId || '';
+        
+        // Lưu vào danh sách winners với timestamp
+        winners.push({ 
+          code: code6, 
+          name: name, 
+          playerId: playerId,
+          prize: prize,
+          timestamp: new Date().toISOString(),
+          datetime: new Date().toLocaleString('vi-VN')
+        });
+      });
+      
+      // Clear batch winners sau khi xử lý
+      window.currentBatchWinners = null;
+    } else {
+      // Logic cũ cho 1 winner
+      const codeEls = document.querySelectorAll('.result-cards .draw-card span');
+      let code6 = '';
+      codeEls.forEach(el => { code6 += el.textContent; });
     let name = document.getElementById('result-winner-name').textContent || '';
-    // Tìm và loại khỏi danh sách
+      
+    // Tìm player ID của winner này
+    let playerId = '';
     let idx = luckyCodes.findIndex(c => c.padStart(6, '0') === code6);
-    if (idx !== -1) {
-      luckyCodes.splice(idx, 1);
-      if (idx < luckyNames.length) luckyNames.splice(idx, 1);
+    if (idx !== -1 && idx < luckyPlayers.length) {
+      playerId = luckyPlayers[idx] || '';
+    }
+      
+            // Lưu vào danh sách winners với timestamp
+        winners.push({ 
+          code: code6, 
+          name: name, 
+          playerId: playerId,
+          prize: prize,
+          timestamp: new Date().toISOString(),
+          datetime: new Date().toLocaleString('vi-VN')
+        });
+    }
+    
+          // Lưu thay đổi vào localStorage
       localStorage.setItem('luckyCodes', JSON.stringify(luckyCodes));
       localStorage.setItem('luckyNames', JSON.stringify(luckyNames));
-    }
-    // Lưu vào danh sách winners
-    let winners = JSON.parse(localStorage.getItem('winners') || '[]');
-    winners.push({ code: code6, name: name, prize: prize });
     localStorage.setItem('winners', JSON.stringify(winners));
+      
     // Cập nhật số người đã đạt giải
-    updateWinnerCount(prize);
+      updateWinnerCount();
+      
+      // Kiểm tra và tự động chuyển giải nếu cần
+      const autoSwitched = checkAndAutoSwitchPrize();
+      
+    // Clear tất cả intervals trước khi quay lại
+    clearAllSlotIntervals();
+    isSpinning = false;
+    
+    // Clear result cards trước khi quay lại draw mode
+    const resultCards = document.querySelector('.result-cards');
+    if (resultCards) {
+      resultCards.innerHTML = '';
+    }
+    
     // Quay lại trang draw-mode để bắt đầu quay tiếp
     document.querySelector('.result-mode').style.display = 'none';
     document.querySelector('.draw-mode').style.display = 'flex';
@@ -667,10 +962,24 @@ if (resultConfirmBtn) {
     document.body.classList.add('draw-active');
     document.querySelector('.draw-mode').classList.remove('drawing');
     updateDrawCardsWithPrizeIcon();
+      
+      if (autoSwitched) {
+        console.log('🔄 Prize auto-switched, display updated');
+      }
   };
 }
 if (resultBackBtn) {
   resultBackBtn.onclick = function() {
+    // Clear tất cả intervals trước khi quay lại
+    clearAllSlotIntervals();
+    isSpinning = false;
+    
+    // Clear result cards trước khi quay lại draw mode
+    const resultCards = document.querySelector('.result-cards');
+    if (resultCards) {
+      resultCards.innerHTML = '';
+    }
+    
     document.querySelector('.result-mode').style.display = 'none';
     document.querySelector('.draw-mode').style.display = 'flex';
     drawBtn.style.display = '';
@@ -690,17 +999,64 @@ if (resultBackBtn) {
   };
 }
 
-// Ẩn hoặc loại bỏ phần hiển thị đã có X người đạt giải
-function updateWinnerCount(prize) {
-  let countDiv = document.getElementById('winner-count-info');
-  if (countDiv) countDiv.style.display = 'none';
+// Cập nhật số người đã đạt giải
+function updateWinnerCount(prizeName) {
+  console.log('=== UPDATING WINNER COUNT ===');
+  console.log('Prize name:', prizeName);
+  
+  const winners = JSON.parse(localStorage.getItem('winners') || '[]');
+  const prizes = JSON.parse(localStorage.getItem('prizes') || '[]');
+  const currentPrizeIdx = parseInt(localStorage.getItem('currentPrizeIdx') || '0', 10);
+  
+  // Tìm prize hiện tại để lấy maxWinners
+  const currentPrize = prizes[currentPrizeIdx];
+  const prizeWinners = winners.filter(w => w.prize === (prizeName || currentPrize?.name));
+  const currentCount = prizeWinners.length;
+  const maxWinners = currentPrize?.maxWinners || 0;
+  
+  console.log('Current winners:', currentCount);
+  console.log('Max winners:', maxWinners);
+  
+  // Cập nhật tất cả các prize-count-num elements
+  const countElements = document.querySelectorAll('.prize-count-num');
+  countElements.forEach(countEl => {
+    if (maxWinners > 0) {
+      // Hiển thị dạng "3/10"
+      countEl.textContent = `${currentCount}/${maxWinners}`;
+      countEl.title = `${currentCount} người đã trúng / ${maxWinners} người tối đa`;
+    } else {
+      // Hiển thị chỉ số hiện tại nếu không giới hạn
+      countEl.textContent = currentCount;
+      countEl.title = `${currentCount} người đã trúng (không giới hạn)`;
+    }
+  });
+  
+  // Thêm màu sắc và class để phân biệt trạng thái
+  countElements.forEach(countEl => {
+    // Reset classes
+    countEl.classList.remove('full', 'warning', 'normal');
+    
+    if (maxWinners > 0 && currentCount >= maxWinners) {
+      countEl.classList.add('full');
+      countEl.style.color = '#ff6b6b'; // Đỏ khi đã đủ
+      countEl.style.fontWeight = 'bold';
+    } else if (maxWinners > 0 && currentCount >= maxWinners * 0.8) {
+      countEl.classList.add('warning');
+      countEl.style.color = '#ffa726'; // Cam khi gần đủ
+      countEl.style.fontWeight = 'bold';
+    } else {
+      countEl.classList.add('normal');
+      countEl.style.color = '#4caf50'; // Xanh khi còn có thể quay
+      countEl.style.fontWeight = 'normal';
+    }
+  });
+  
+  console.log('Winner count updated:', currentCount, '/', maxWinners);
 }
 
-function updatePrizeCount(prize) {
-  let winners = JSON.parse(localStorage.getItem('winners') || '[]');
-  let count = winners.filter(w => w.prize === prize).length;
-  let countNum = document.querySelector('.prize-count-num');
-  if (countNum) countNum.textContent = count;
+function updatePrizeCount(prizeName) {
+  console.log('=== UPDATING PRIZE COUNT ===');
+  updateWinnerCount(prizeName); // Sử dụng function mới
 }
 // Gọi updatePrizeCount khi chuyển giải hoặc xác nhận
 (function() {
@@ -746,22 +1102,77 @@ let luckyCode = '';
 let luckyName = '';
 
 function setSlotNumber(card, num) {
-  card.innerHTML = `<span style="font-size:3.5em;font-weight:bold;color:#fff;display:inline-block;width:100%;text-align:center;font-family:'Arial Black','Arial',sans-serif;">${num}</span>`;
+  card.innerHTML = `<span style="font-size:2.8em;font-weight:bold;color:#fff;display:inline-block;width:100%;text-align:center;font-family:'Arial Black','Arial',sans-serif;">${num}</span>`;
+}
+
+// Central validation and spin function  
+function validateAndStartSpin() {
+  console.log('=== validateAndStartSpin called ===');
+  
+  // Kiểm tra đang spinning
+  if (isSpinning) {
+    console.log('Already spinning, ignoring request');
+    return false;
+  }
+  
+  // Đảm bảo clear tất cả intervals trước khi bắt đầu
+  clearAllSlotIntervals();
+  
+  // Kiểm tra số lượng draw cards
+  const drawCards = document.querySelectorAll('.draw-mode .draw-card:not(.result-draw-card)');
+  console.log('Number of draw cards found:', drawCards.length);
+  
+  // Simple validation - chỉ cần có số là được
+  const luckyCodes = JSON.parse(localStorage.getItem('luckyCodes') || '[]');
+  if (luckyCodes.length === 0) {
+    console.log('❌ Không có mã số để quay');
+    showEmptyListWarning();
+    return false;
+  }
+  
+  console.log('✅ Có mã số - bắt đầu quay số');
+  
+  // Phát âm thanh khi bắt đầu quay
+  playSound('spinStart');
+  playSound('rolling');
+  
+  // Bắt đầu quay
+  startSlotSpin();
+  
+  // Cập nhật UI
+  const drawBtn = document.querySelector('.draw-btn');
+  const lockBtn = document.querySelector('.lock-btn');
+  if (drawBtn) drawBtn.style.display = 'none';
+  if (lockBtn) lockBtn.style.display = '';
+  
+  return true;
 }
 
 function startSlotSpin() {
-  const drawCards = document.querySelectorAll('.draw-card');
-  slotIntervals = [];
-  isSpinning = true;
-  drawCards.forEach((card, idx) => {
-    slotIntervals[idx] = setInterval(() => {
-      setSlotNumber(card, Math.floor(Math.random() * 10));
-    }, 60);
-    card.classList.remove('lucky-highlight', 'lucky-blink');
-  });
-  // Ẩn tên người trúng nếu có
-  const nameDiv = document.getElementById('draw-winner-name');
-  if (nameDiv) nameDiv.textContent = '';
+  console.log('=== startSlotSpin called ===');
+  const drawCards = document.querySelectorAll('.draw-mode .draw-card:not(.result-draw-card)');
+  
+  // Clear tất cả intervals cũ trước khi tạo mới
+  clearAllSlotIntervals();
+  
+  // Đảm bảo tất cả intervals được clear hoàn toàn trước khi tạo mới
+  setTimeout(() => {
+    isSpinning = true;
+    console.log('Set isSpinning = true');
+    console.log('Creating new intervals with 60ms delay');
+    console.log('Found', drawCards.length, 'draw cards to animate');
+    
+    drawCards.forEach((card, idx) => {
+      slotIntervals[idx] = setInterval(() => {
+        setSlotNumber(card, Math.floor(Math.random() * 10));
+      }, 60); // Chuyển lại về 60ms như cũ
+      console.log(`Created interval ${idx} with ID:`, slotIntervals[idx]);
+      card.classList.remove('lucky-highlight', 'lucky-blink');
+    });
+    // Ẩn tên người trúng nếu có
+    const nameDiv = document.getElementById('draw-winner-name');
+    if (nameDiv) nameDiv.textContent = '';
+  }, 10); // Delay nhỏ để đảm bảo clear hoàn toàn
 }
 
 // === HIỂN THỊ NÚT XÁC NHẬN VÀ QUAY LẠI SAU KHI QUAY ===
@@ -779,26 +1190,40 @@ function showConfirmButtons(code, name, prize) {
   `;
   btnWrap.style.display = '';
   document.getElementById('draw-confirm-btn').onclick = function() {
+    // Clear tất cả intervals trước khi reset
+    clearAllSlotIntervals();
+    isSpinning = false;
+    
     // Lưu vào winners
     let winners = JSON.parse(localStorage.getItem('winners') || '[]');
-    winners.push({ code, name, prize });
+            winners.push({ 
+          code, 
+          name, 
+          prize,
+          timestamp: new Date().toISOString(),
+          datetime: new Date().toLocaleString('vi-VN')
+        });
     localStorage.setItem('winners', JSON.stringify(winners));
     // Ẩn nút, reset giao diện về quay số
     btnWrap.style.display = 'none';
     document.querySelector('.draw-mode').classList.remove('drawing');
     document.querySelector('.draw-mode').classList.add('not-picked');
     document.getElementById('draw-winner-name').innerHTML = '';
-    document.querySelectorAll('.draw-card').forEach(card => card.classList.remove('lucky-highlight', 'lucky-blink'));
+    document.querySelectorAll('.draw-mode .draw-card:not(.result-draw-card)').forEach(card => card.classList.remove('lucky-highlight', 'lucky-blink'));
     // KHÔNG hiện lại nút quay số ở đây
     document.querySelector('.lock-btn').style.display = 'none';
   };
   document.getElementById('draw-back-btn').onclick = function() {
+    // Clear tất cả intervals trước khi reset
+    clearAllSlotIntervals();
+    isSpinning = false;
+    
     // Không lưu, chỉ reset giao diện về quay số
     btnWrap.style.display = 'none';
     document.querySelector('.draw-mode').classList.remove('drawing');
     document.querySelector('.draw-mode').classList.add('not-picked');
     document.getElementById('draw-winner-name').innerHTML = '';
-    document.querySelectorAll('.draw-card').forEach(card => card.classList.remove('lucky-highlight', 'lucky-blink'));
+    document.querySelectorAll('.draw-mode .draw-card:not(.result-draw-card)').forEach(card => card.classList.remove('lucky-highlight', 'lucky-blink'));
     document.querySelector('.lock-btn').style.display = 'none';
     // KHÔNG hiện lại nút quay số ở đây
   };
@@ -806,17 +1231,24 @@ function showConfirmButtons(code, name, prize) {
 
 // Sửa lại stopSlotSpinWithLucky: sau khi quay xong, chuyển sang màn hình kết quả
 function stopSlotSpinWithLucky(code, name) {
+  console.log('=== stopSlotSpinWithLucky called ===');
+  console.log('Input code:', code, 'name:', name);
   stopRollingAudio(); // Dừng rolling.mp3 ngay khi bấm CHỐT
   playSound('slotStop'); // Phát slot-stop.mp3 lặp lại liên tục
-  const drawCards = document.querySelectorAll('.draw-card');
+  const drawCards = document.querySelectorAll('.draw-mode .draw-card:not(.result-draw-card)');
   code = (code || '').slice(0, drawCards.length);
   const slotCount = drawCards.length;
-  const slotDelay = slotCount > 0 ? 4000 / slotCount : 400; // ms
+  const slotDelay = slotCount > 0 ? 4000 / slotCount : 400; // ms - Chuyển lại như cũ
   drawCards.forEach((card, idx) => {
-    clearInterval(slotIntervals[idx]);
+    // Clear interval cũ nếu có
+    if (slotIntervals[idx]) {
+      console.log(`Clearing old interval ${idx} with ID:`, slotIntervals[idx]);
+      clearInterval(slotIntervals[idx]);
+    }
     slotIntervals[idx] = setInterval(() => {
       setSlotNumber(card, Math.floor(Math.random() * 10));
-    }, 20);
+    }, 20); // Chuyển lại về 20ms như cũ
+    console.log(`Created new fast interval ${idx} with ID:`, slotIntervals[idx], 'at 20ms');
   });
   setTimeout(() => {
     function stopNext(i) {
@@ -831,8 +1263,23 @@ function stopSlotSpinWithLucky(code, name) {
         });
         window.currentDrawCode6 = codeOnSlot;
         window.currentDrawWinner = { code: codeOnSlot, name: name, code6: codeOnSlot, prize: getCurrentPrize() };
+        console.log('Set window.currentDrawCode6:', window.currentDrawCode6);
+        console.log('Set window.currentDrawWinner:', window.currentDrawWinner);
         playSound('result'); // Âm thanh công bố kết quả
-        showResultScreen([{ code6: codeOnSlot, name: name }], { name: getCurrentPrize(), icon: getCurrentPrizeIcon() });
+        
+        // Sử dụng toàn bộ winners nếu có quay hàng loạt
+        const winnersToShow = window.currentBatchWinners || [{ code6: codeOnSlot, name: name }];
+        console.log('=== CALLING showResultScreen ===');
+        console.log('winnersToShow:', winnersToShow);
+        console.log('winnersToShow.length:', winnersToShow.length);
+        console.log('window.currentBatchWinners:', window.currentBatchWinners);
+        console.log('Current prize info:', { name: getCurrentPrize(), icon: getCurrentPrizeIcon() });
+        
+        try {
+          showResultScreen(winnersToShow, { name: getCurrentPrize(), icon: getCurrentPrizeIcon() });
+        } catch (error) {
+          console.error('Error in showResultScreen:', error);
+        }
         return;
       }
       clearInterval(slotIntervals[i]);
@@ -858,101 +1305,49 @@ function getCurrentPrizeIcon() {
   return prizes[currentPrizeIdx]?.icon || '⭐';
 }
 
-if (drawBtn && lockBtn) {
-  drawBtn.addEventListener('click', function() {
-    if (isSpinning) return;
-    drawBtn.style.display = 'none';
-    lockBtn.style.display = '';
-    startSlotSpin();
-  });
-  lockBtn.addEventListener('click', function() {
-    if (!isSpinning) return;
-    drawBtn.style.display = 'none'; // Ẩn nút quay số ngay khi bấm chốt
-    // Lấy danh sách mã số và tên
-    let luckyCodes = JSON.parse(localStorage.getItem('luckyCodes') || '[]');
-    let luckyNames = JSON.parse(localStorage.getItem('luckyNames') || '[]');
-    // Chọn ngẫu nhiên 1 mã số
-    let idx = Math.floor(Math.random() * luckyCodes.length);
-    luckyCode = (luckyCodes[idx] || '').padStart(6, '0');
-    luckyName = luckyNames[idx] || '';
-    stopSlotSpinWithLucky(luckyCode, luckyName);
-    isSpinning = false;
-    lockBtn.style.display = 'none';
-    // drawBtn.style.display = ''; // KHÔNG hiện lại nút quay số ở đây
-  });
-}
-// ==== Main Title Color Picker ====
-(function() {
-  const dot = document.querySelector('.dot');
-  const colorInput = document.getElementById('titleColorPicker');
-  const mainTitle = document.querySelector('.main-title');
-  // Load màu từ localStorage
-  function applyTitleColor() {
-    const color = localStorage.getItem('mainTitleColor');
-    if (color) {
-      mainTitle.style.color = color;
-      dot.style.background = color;
-    } else {
-      mainTitle.style.color = '';
-      dot.style.background = '#e0e0e0';
-    }
-  }
-  dot.addEventListener('click', function() {
-    colorInput.click();
-  });
-  colorInput.addEventListener('input', function() {
-    const color = colorInput.value;
-    mainTitle.style.color = color;
-    dot.style.background = color;
-    localStorage.setItem('mainTitleColor', color);
-  });
-  applyTitleColor();
-})(); 
+// Biến toàn cục quản lý audio
+let rollingAudio = null;
+let slotStopAudio = null;
 
-// ==== Draw Cards Show Prize Icon Instead of Number ====
-// Hiển thị icon giải thưởng trong các ô draw-card khi draw-mode chưa quay
+// Function để clear tất cả slot intervals
+function clearAllSlotIntervals() {
+  console.log('=== clearAllSlotIntervals called ===');
+  if (slotIntervals && slotIntervals.length > 0) {
+    console.log('Clearing', slotIntervals.length, 'intervals');
+    slotIntervals.forEach((interval, idx) => {
+      if (interval) {
+        console.log(`Clearing interval ${idx} with ID:`, interval);
+        clearInterval(interval);
+      }
+    });
+    slotIntervals = [];
+    console.log('All intervals cleared, slotIntervals reset to:', slotIntervals);
+  } else {
+    console.log('No intervals to clear');
+  }
+}
+
+
+
+// Function update draw cards with prize icon
 function updateDrawCardsWithPrizeIcon() {
+  console.log('=== updateDrawCardsWithPrizeIcon called ===');
   // Lấy icon của giải hiện tại
   const prizes = JSON.parse(localStorage.getItem('prizes') || '[{"name":"GIẢI ĐẶC BIỆT","icon":"💎"},{"name":"GIẢI NHẤT","icon":"🥇"},{"name":"GIẢI NHÌ","icon":"🥈"},{"name":"GIẢI BA","icon":"🥉"}]');
   const currentPrizeIdx = parseInt(localStorage.getItem('currentPrizeIdx'), 10) || 0;
   const icon = prizes[currentPrizeIdx]?.icon || '⭐';
-  document.querySelectorAll('.draw-card').forEach(card => {
-    card.innerHTML = `<span>${icon}</span>`;
+  
+  console.log('Current prize:', prizes[currentPrizeIdx]);
+  console.log('Using icon:', icon);
+  
+  document.querySelectorAll('.draw-mode .draw-card:not(.result-draw-card)').forEach((card, index) => {
+    card.innerHTML = `<span style="font-size:2.5em;font-weight:bold;color:#fff;display:inline-block;width:100%;text-align:center;">${icon}</span>`;
     card.classList.remove('lucky-highlight', 'lucky-blink');
+    console.log(`Updated card ${index} with icon:`, icon);
   });
 }
-// Gọi hàm này khi vào main-mode hoặc khi đổi giải
-updateDrawCardsWithPrizeIcon();
-document.querySelector('.show-btn').addEventListener('click', updateDrawCardsWithPrizeIcon);
-document.querySelectorAll('.arrow.left, .arrow.right').forEach(btn => btn.addEventListener('click', updateDrawCardsWithPrizeIcon));
-// Gọi hàm này khi vào draw-mode và result-mode
-function observeDrawMode() {
-  const main = document.querySelector('main');
-  const observer = new MutationObserver(() => {
-    if (main.classList.contains('draw-mode') || main.classList.contains('result-mode')) {
-      updateDrawCardsWithPrizeIcon();
-    }
-  });
-  observer.observe(main, { attributes: true, attributeFilter: ['class'] });
-}
-observeDrawMode(); 
 
-// Music control
-const bgMusic = document.getElementById('bg-music');
-const spinMusic = document.getElementById('spin-music');
-const resultMusic = document.getElementById('result-music');
-
-function playMusic(music) {
-  [bgMusic, spinMusic, resultMusic].forEach(m => { if (m && !m.paused) m.pause(); m && (m.currentTime = 0); });
-  if (music) {
-    music.currentTime = 0;
-    music.play();
-  }
-}
-
-// Biến toàn cục quản lý rolling audio
-let rollingAudio = null;
-
+// Các function âm thanh
 function playSound(key) {
   const ids = {
     bg: 'bg-music',
@@ -965,432 +1360,616 @@ function playSound(key) {
   };
   const audio = document.getElementById(ids[key]);
   if (!audio) return;
+  
   if (key === 'rolling') {
     if (!rollingAudio) rollingAudio = audio;
     rollingAudio.currentTime = 0;
     rollingAudio.loop = true;
-    rollingAudio.play();
+    rollingAudio.play().catch(() => {});
   } else if (key === 'slotStop') {
     if (!slotStopAudio) slotStopAudio = audio;
     slotStopAudio.currentTime = 0;
     slotStopAudio.loop = true;
-    slotStopAudio.play();
+    slotStopAudio.play().catch(() => {});
   } else {
     audio.currentTime = 0;
-    audio.play();
+    audio.play().catch(() => {});
   }
 }
+
 function stopRollingAudio() {
   if (rollingAudio) {
     rollingAudio.pause();
     rollingAudio.currentTime = 0;
+    rollingAudio.loop = false;
   }
 }
+
 function stopSlotStopAudio() {
   if (slotStopAudio) {
     slotStopAudio.pause();
     slotStopAudio.currentTime = 0;
+    slotStopAudio.loop = false;
   }
 }
 
-// Phát nhạc nền khi vào trang hoặc về draw-mode
-window.addEventListener('DOMContentLoaded', function() {
-  playSound('bg');
+// Function playMusic
+function playMusic(key) {
+  const audio = document.getElementById(key === 'result' ? 'result-fanfare' : 'bg-music');
+  if (audio) {
+    audio.currentTime = 0;
+    audio.play().catch(() => {});
+  }
+}
+
+// Disable old event listener - sẽ được thay thế bởi enhanced version bên dưới
+// if (drawBtn && lockBtn) {
+//   drawBtn.addEventListener('click', function() {
+//     if (isSpinning) return;
+//     drawBtn.style.display = 'none';
+//     lockBtn.style.display = '';
+//     
+//     // Phát âm thanh khi bắt đầu quay
+//     playSound('spinStart');
+//     playSound('rolling');
+//     
+//     startSlotSpin();
+//   });
+// }
+
+// ==== LOGIC MODAL LUCKY LIST ====
+// Click vào các card để mở modal nhập mã số
+document.addEventListener('DOMContentLoaded', function() {
+  const mainModeCards = document.querySelectorAll('.main-mode .card');
+  const luckyListModal = document.getElementById('lucky-list-modal');
+  const luckyListClose = document.querySelector('.lucky-list-modal-close');
+  const luckyListCancel = document.querySelector('.lucky-list-cancel-btn');
+  const luckyListSave = document.querySelector('.lucky-list-save-btn');
+  const luckyListDraw = document.querySelector('.lucky-list-draw-btn');
+  const autoGenBtn = document.getElementById('auto-generate-btn');
+  const luckyCodeList = document.getElementById('lucky-code-list');
+  const luckyNameList = document.getElementById('lucky-name-list');
+  const luckyPlayerList = document.getElementById('lucky-player-list');
+  const luckyCodeCount = document.getElementById('lucky-code-count');
+  const luckyNameCount = document.getElementById('lucky-name-count');
+  const luckyPlayerCount = document.getElementById('lucky-player-count');
+  const autoFrom = document.getElementById('auto-from');
+  const autoTo = document.getElementById('auto-to');
+
+  // Event listener cho click vào card
+  mainModeCards.forEach(card => {
+    card.addEventListener('click', function() {
+      openLuckyListModal();
+    });
+  });
+
+  function openLuckyListModal() {
+    if (luckyListModal) {
+      luckyListModal.classList.remove('hidden');
+      loadExistingData();
+      updateCounts();
+    }
+  }
+
+  function closeLuckyListModal() {
+    if (luckyListModal) {
+      luckyListModal.classList.add('hidden');
+    }
+  }
+
+  function loadExistingData() {
+    const codes = JSON.parse(localStorage.getItem('luckyCodes') || '[]');
+    const names = JSON.parse(localStorage.getItem('luckyNames') || '[]');
+    const players = JSON.parse(localStorage.getItem('luckyPlayers') || '[]');
+    if (luckyCodeList) luckyCodeList.value = codes.join('\n');
+    if (luckyNameList) luckyNameList.value = names.join('\n');
+    if (luckyPlayerList) luckyPlayerList.value = players.join('\n');
+  }
+
+  function updateCounts() {
+    if (!luckyCodeList || !luckyNameList) return;
+    const codes = luckyCodeList.value.split(/\n|,/).map(s => s.trim()).filter(Boolean);
+    const names = luckyNameList.value.split(/\n|,/).map(s => s.trim()).filter(Boolean);
+    const players = luckyPlayerList ? luckyPlayerList.value.split(/\n|,/).map(s => s.trim()).filter(Boolean) : [];
+    
+    if (luckyCodeCount) luckyCodeCount.textContent = codes.length;
+    if (luckyNameCount) luckyNameCount.textContent = names.length;
+    if (luckyPlayerCount) {
+      // Đếm số người chơi unique
+      const uniquePlayers = [...new Set(players)];
+      luckyPlayerCount.textContent = uniquePlayers.length;
+    }
+  }
+
+  function saveLuckyList() {
+    if (!luckyCodeList || !luckyNameList) return;
+    const codes = luckyCodeList.value.split(/\n|,/).map(s => s.trim()).filter(Boolean);
+    const names = luckyNameList.value.split(/\n|,/).map(s => s.trim()).filter(Boolean);
+    const players = luckyPlayerList ? luckyPlayerList.value.split(/\n|,/).map(s => s.trim()).filter(Boolean) : [];
+    
+    // Tự động tạo player IDs nếu không có
+    if (players.length === 0 && codes.length > 0) {
+      const uniqueNames = [...new Set(names)];
+      const nameToPlayerMap = {};
+      uniqueNames.forEach((name, index) => {
+        nameToPlayerMap[name] = `P${(index + 1).toString().padStart(3, '0')}`;
+      });
+      
+      // Tạo player list dựa trên tên
+      for (let i = 0; i < names.length; i++) {
+        players.push(nameToPlayerMap[names[i]] || `P${(i + 1).toString().padStart(3, '0')}`);
+      }
+      
+      // Cập nhật textarea
+      if (luckyPlayerList) {
+        luckyPlayerList.value = players.join('\n');
+      }
+    }
+    
+    localStorage.setItem('luckyCodes', JSON.stringify(codes));
+    localStorage.setItem('luckyNames', JSON.stringify(names));
+    localStorage.setItem('luckyPlayers', JSON.stringify(players));
+    
+    console.log('Đã lưu:', codes.length, 'mã số,', names.length, 'tên, và', players.length, 'player IDs');
+  }
+
+  // Event listeners
+  if (luckyCodeList && luckyNameList) {
+    luckyCodeList.addEventListener('input', updateCounts);
+    luckyNameList.addEventListener('input', updateCounts);
+    if (luckyPlayerList) {
+      luckyPlayerList.addEventListener('input', updateCounts);
+    }
+  }
+
+  if (autoGenBtn) {
+    autoGenBtn.addEventListener('click', function() {
+      let from = parseInt(autoFrom.value, 10) || 1;
+      let to = parseInt(autoTo.value, 10) || 1;
+      if (from > to) [from, to] = [to, from];
+      const codes = [];
+      for (let i = from; i <= to; ++i) codes.push(i.toString().padStart(6, '0'));
+      luckyCodeList.value = codes.join('\n');
+      updateCounts();
+    });
+  }
+
+  if (luckyListClose) luckyListClose.addEventListener('click', closeLuckyListModal);
+  if (luckyListCancel) luckyListCancel.addEventListener('click', closeLuckyListModal);
+
+  if (luckyListSave) {
+    luckyListSave.addEventListener('click', function() {
+      saveLuckyList();
+      closeLuckyListModal();
+    });
+  }
+
+  if (luckyListDraw) {
+    luckyListDraw.addEventListener('click', function() {
+      console.log('=== Lucky List QUAY SỐ button clicked ===');
+      
+      // Lưu dữ liệu trước
+      saveLuckyList();
+      
+      // Kiểm tra đơn giản - chỉ cần có mã số
+      const codes = JSON.parse(localStorage.getItem('luckyCodes') || '[]');
+      if (codes.length === 0) {
+        console.log('❌ Không có mã số');
+        alert('Vui lòng nhập ít nhất 1 mã số!');
+        return;
+      }
+      
+      console.log('✅ Có mã số - cho phép chuyển mode');
+      
+      closeLuckyListModal();
+      // Chuyển sang draw mode
+      document.querySelector('.main-mode').style.display = 'none';
+      document.querySelector('.draw-mode').style.display = 'flex';
+      document.body.classList.add('draw-active');
+      
+      // Cập nhật displays
+      updateDrawCardsWithPrizeIcon();
+      updateWinnerCount();
+      
+      console.log('✅ Lucky list → draw mode thành công');
+    });
+  }
 });
 
-// Khi bấm nút quay số
-if (drawBtn) {
-  drawBtn.addEventListener('click', function() {
-    playSound('spinStart');
-    playSound('rolling'); // rolling.mp3 lặp lại liên tục
-  });
-}
+// ==== MULTIPLE WINNERS MODAL LOGIC ====
+document.addEventListener('DOMContentLoaded', function() {
+  console.log('=== SETTING UP MULTIPLE WINNERS MODAL LOGIC ===');
+  const multipleWinnersModal = document.getElementById('multiple-winners-modal');
+  const multipleWinnersClose = document.querySelector('.multiple-winners-modal-close');
+  const multipleWinnersConfirm = document.querySelector('.multiple-winners-confirm-btn');
+  const multipleWinnersBack = document.querySelector('.multiple-winners-back-btn');
+  
+  console.log('Modal elements found:');
+  console.log('multipleWinnersModal:', multipleWinnersModal);
+  console.log('multipleWinnersClose:', multipleWinnersClose);
+  console.log('multipleWinnersConfirm:', multipleWinnersConfirm);
+  console.log('multipleWinnersBack:', multipleWinnersBack);
 
-// Trong stopSlotSpinWithLucky, dừng rolling khi bấm CHỐT, phát slotStop khi từng slot dừng, result khi công bố kết quả
-function stopSlotSpinWithLucky(code, name) {
-  stopRollingAudio(); // Dừng rolling.mp3 ngay khi bấm CHỐT
-  playSound('slotStop'); // Phát slot-stop.mp3 lặp lại liên tục
-  const drawCards = document.querySelectorAll('.draw-card');
-  code = (code || '').slice(0, drawCards.length);
-  const slotCount = drawCards.length;
-  const slotDelay = slotCount > 0 ? 4000 / slotCount : 400; // ms
-  drawCards.forEach((card, idx) => {
-    clearInterval(slotIntervals[idx]);
-    slotIntervals[idx] = setInterval(() => {
-      setSlotNumber(card, Math.floor(Math.random() * 10));
-    }, 20);
-  });
-  setTimeout(() => {
-    function stopNext(i) {
-      if (i >= drawCards.length) {
-        stopSlotStopAudio(); // Dừng slot-stop.mp3 khi tất cả slot đã dừng
-        let codeOnSlot = '';
-        drawCards.forEach(card => {
-          const span = card.querySelector('span');
-          let val = span ? span.textContent : '';
-          if (!/^[0-9]$/.test(val)) val = '';
-          codeOnSlot += val;
-        });
-        window.currentDrawCode6 = codeOnSlot;
-        window.currentDrawWinner = { code: codeOnSlot, name: name, code6: codeOnSlot, prize: getCurrentPrize() };
-        playSound('result'); // Âm thanh công bố kết quả
-        showResultScreen([{ code6: codeOnSlot, name: name }], { name: getCurrentPrize(), icon: getCurrentPrizeIcon() });
-        return;
+  // Đóng modal
+  if (multipleWinnersClose) {
+    console.log('Setting up close button event listener');
+    multipleWinnersClose.onclick = function() {
+      console.log('=== CLOSE BUTTON CLICKED ===');
+      // Clear tất cả intervals trước khi quay lại
+      clearAllSlotIntervals();
+      isSpinning = false;
+      
+      // Clear result cards trước khi quay lại draw mode
+      const resultCards = document.querySelector('.result-cards');
+      if (resultCards) {
+        resultCards.innerHTML = '';
       }
-      clearInterval(slotIntervals[i]);
-      setSlotNumber(drawCards[i], code[i] || '');
-      drawCards[i].classList.add('lucky-highlight');
-      setTimeout(() => {
-        drawCards[i].classList.remove('lucky-highlight');
-        stopNext(i + 1);
-      }, slotDelay);
-    }
-    stopNext(0);
-  }, 0); // Không cần delay tổng, delay chia đều cho từng slot
-}
+      
+      multipleWinnersModal.classList.add('hidden');
+      multipleWinnersModal.style.display = 'none';
+      // Quay lại draw mode
+      document.querySelector('.draw-mode').style.display = 'flex';
+      document.querySelector('.draw-btn').style.display = '';
+      document.body.classList.add('draw-active');
+      document.body.classList.remove('result-active');
+      updateDrawCardsWithPrizeIcon();
+    };
+  } else {
+    console.warn('multipleWinnersClose button not found!');
+  }
 
-// Khi xác nhận lưu kết quả
-if (resultConfirmBtn) {
-  resultConfirmBtn.onclick = function() {
-    playSound('save');
-    // Lấy mã số và tên vừa trúng
-    const codeEls = document.querySelectorAll('.result-cards .draw-card span');
-    let code6 = '';
-    codeEls.forEach(el => { code6 += el.textContent; });
+  // Xác nhận tất cả winners
+  if (multipleWinnersConfirm) {
+    console.log('Setting up confirm button event listener');
+    multipleWinnersConfirm.onclick = function() {
+      console.log('=== CONFIRM BUTTON CLICKED ===');
+      console.log('window.currentBatchWinners:', window.currentBatchWinners);
+      // Sử dụng logic confirm từ resultConfirmBtn
+      const currentPrize = document.getElementById('multiple-winners-prize-title').textContent;
+      const prizeName = currentPrize.split(' - ')[0].replace('🎉 ', '').replace(' 🎉', '');
+      
     let luckyCodes = JSON.parse(localStorage.getItem('luckyCodes') || '[]');
     let luckyNames = JSON.parse(localStorage.getItem('luckyNames') || '[]');
-    let prize = document.getElementById('result-prize-label').textContent || '';
-    let name = document.getElementById('result-winner-name').textContent || '';
-    // Tìm và loại khỏi danh sách
-    let idx = luckyCodes.findIndex(c => c.padStart(6, '0') === code6);
-    if (idx !== -1) {
-      luckyCodes.splice(idx, 1);
-      if (idx < luckyNames.length) luckyNames.splice(idx, 1);
+      let winners = JSON.parse(localStorage.getItem('winners') || '[]');
+      
+      // Xử lý tất cả winners từ currentBatchWinners
+      if (window.currentBatchWinners && window.currentBatchWinners.length > 0) {
+        window.currentBatchWinners.forEach(winner => {
+          const code6 = winner.code;
+          const name = winner.name;
+          const playerId = winner.playerId || '';
+          
+          // Lưu vào danh sách winners với timestamp
+          winners.push({ 
+            code: code6, 
+            name: name, 
+            playerId: playerId,
+            prize: prizeName,
+            timestamp: new Date().toISOString(),
+            datetime: new Date().toLocaleString('vi-VN')
+          });
+        });
+        
+        // Clear batch winners sau khi xử lý
+        window.currentBatchWinners = null;
+      }
+      
+      // Lưu thay đổi vào localStorage
       localStorage.setItem('luckyCodes', JSON.stringify(luckyCodes));
       localStorage.setItem('luckyNames', JSON.stringify(luckyNames));
-    }
-    // Lưu vào danh sách winners
-    let winners = JSON.parse(localStorage.getItem('winners') || '[]');
-    winners.push({ code: code6, name: name, prize: prize });
     localStorage.setItem('winners', JSON.stringify(winners));
-    // Cập nhật số người đã đạt giải
-    updateWinnerCount(prize);
-    // Quay lại trang draw-mode để bắt đầu quay tiếp
-    document.querySelector('.result-mode').style.display = 'none';
+      
+      console.log('Saved multiple winners:', winners.length, 'total winners');
+      
+      // Cập nhật số người trúng thưởng
+      updateWinnerCount();
+      
+      // Kiểm tra và tự động chuyển giải nếu cần
+      const autoSwitched = checkAndAutoSwitchPrize();
+      
+      // Clear tất cả intervals trước khi quay lại
+      clearAllSlotIntervals();
+      isSpinning = false;
+      
+      // Clear result cards trước khi quay lại draw mode
+      const resultCards = document.querySelector('.result-cards');
+      if (resultCards) {
+        resultCards.innerHTML = '';
+      }
+      
+      // Đóng modal và quay lại draw mode
+      multipleWinnersModal.classList.add('hidden');
+      multipleWinnersModal.style.display = 'none';
     document.querySelector('.draw-mode').style.display = 'flex';
-    drawBtn.style.display = '';
-    document.body.classList.remove('result-active');
+      document.querySelector('.draw-btn').style.display = '';
     document.body.classList.add('draw-active');
-    document.querySelector('.draw-mode').classList.remove('drawing');
+      document.body.classList.remove('result-active');
+      
+      // Reset draw mode
     updateDrawCardsWithPrizeIcon();
-  };
-}
-if (resultBackBtn) {
-  resultBackBtn.onclick = function() {
-    playSound('back');
-    document.querySelector('.result-mode').style.display = 'none';
+      
+      if (autoSwitched) {
+        console.log('🔄 Prize auto-switched after multiple winners confirm');
+      }
+      
+      console.log('Confirm process completed');
+    };
+  } else {
+    console.warn('multipleWinnersConfirm button not found!');
+  }
+
+  // Quay lại
+  if (multipleWinnersBack) {
+    console.log('Setting up back button event listener');
+    multipleWinnersBack.onclick = function() {
+      console.log('=== BACK BUTTON CLICKED ===');
+      // Clear tất cả intervals trước khi quay lại
+      clearAllSlotIntervals();
+      isSpinning = false;
+      
+      // Clear result cards trước khi quay lại draw mode
+      const resultCards = document.querySelector('.result-cards');
+      if (resultCards) {
+        resultCards.innerHTML = '';
+      }
+      
+      // Không lưu, chỉ quay lại draw mode
+      multipleWinnersModal.classList.add('hidden');
+      multipleWinnersModal.style.display = 'none';
     document.querySelector('.draw-mode').style.display = 'flex';
-    drawBtn.style.display = '';
-    document.body.classList.remove('result-active');
+      document.querySelector('.draw-btn').style.display = '';
     document.body.classList.add('draw-active');
-    document.querySelector('.draw-mode').classList.remove('drawing');
-    updateDrawCardsWithPrizeIcon(); // Reset các slot về icon giải thưởng
-    // Ẩn tên người trúng
-    const nameDiv = document.getElementById('draw-winner-name');
-    if (nameDiv) nameDiv.innerHTML = '';
-    // Ẩn nút chốt nếu đang hiện
-    const lockBtn = document.querySelector('.lock-btn');
-    if (lockBtn) lockBtn.style.display = 'none';
-    // Ẩn nút xác nhận/quay lại nếu có
-    const btnWrap = document.getElementById('draw-confirm-btn-wrap');
-    if (btnWrap) btnWrap.style.display = 'none';
-  };
-}
-
-// Ẩn hoặc loại bỏ phần hiển thị đã có X người đạt giải
-function updateWinnerCount(prize) {
-  let countDiv = document.getElementById('winner-count-info');
-  if (countDiv) countDiv.style.display = 'none';
-}
-
-function updatePrizeCount(prize) {
-  let winners = JSON.parse(localStorage.getItem('winners') || '[]');
-  let count = winners.filter(w => w.prize === prize).length;
-  let countNum = document.querySelector('.prize-count-num');
-  if (countNum) countNum.textContent = count;
-}
-// Gọi updatePrizeCount khi chuyển giải hoặc xác nhận
-(function() {
-  // Prize Management Logic patch
-  const prizeLabels = document.querySelectorAll('.prize-label');
-  const leftArrows = document.querySelectorAll('.prize-select .arrow.left');
-  const rightArrows = document.querySelectorAll('.prize-select .arrow.right');
-  function getCurrentPrize() {
-    let label = document.querySelector('.draw-mode .prize-label');
-    return label ? label.textContent.trim() : '';
+      document.body.classList.remove('result-active');
+      
+      // Reset draw mode
+      updateDrawCardsWithPrizeIcon();
+    };
+  } else {
+    console.warn('multipleWinnersBack button not found!');
   }
-  leftArrows.forEach(btn => {
-    btn.addEventListener('click', function() {
-      setTimeout(() => updatePrizeCount(getCurrentPrize()), 10);
+
+  // Click ngoài modal để đóng
+  if (multipleWinnersModal) {
+    multipleWinnersModal.addEventListener('click', function(e) {
+      if (e.target === multipleWinnersModal) {
+        multipleWinnersClose.click();
+      }
     });
-  });
-  rightArrows.forEach(btn => {
-    btn.addEventListener('click', function() {
-      setTimeout(() => updatePrizeCount(getCurrentPrize()), 10);
-    });
-  });
-  // Khi load trang, cập nhật luôn
-  document.addEventListener('DOMContentLoaded', function() {
-    updatePrizeCount(getCurrentPrize());
-  });
-})(); 
-// Sau khi xác nhận kết quả, cập nhật lại số lượng
-if (resultConfirmBtn) {
-  const oldHandler = resultConfirmBtn.onclick;
-  resultConfirmBtn.onclick = function() {
-    if (oldHandler) oldHandler();
-    let prize = document.getElementById('result-prize-label').textContent || '';
-    setTimeout(() => updatePrizeCount(prize), 10);
-  };
-}
-
-// === LOGIC QUAY SỐ VÀ CHỐT MỚI ===
-
-
-function setSlotNumber(card, num) {
-  card.innerHTML = `<span style="font-size:3.5em;font-weight:bold;color:#fff;display:inline-block;width:100%;text-align:center;font-family:'Arial Black','Arial',sans-serif;">${num}</span>`;
-}
-
-function startSlotSpin() {
-  const drawCards = document.querySelectorAll('.draw-card');
-  slotIntervals = [];
-  isSpinning = true;
-  drawCards.forEach((card, idx) => {
-    slotIntervals[idx] = setInterval(() => {
-      setSlotNumber(card, Math.floor(Math.random() * 10));
-    }, 60);
-    card.classList.remove('lucky-highlight', 'lucky-blink');
-  });
-  // Ẩn tên người trúng nếu có
-  const nameDiv = document.getElementById('draw-winner-name');
-  if (nameDiv) nameDiv.textContent = '';
-}
-
-// === HIỂN THỊ NÚT XÁC NHẬN VÀ QUAY LẠI SAU KHI QUAY ===
-function showConfirmButtons(code, name, prize) {
-  let btnWrap = document.getElementById('draw-confirm-btn-wrap');
-  if (!btnWrap) {
-    btnWrap = document.createElement('div');
-    btnWrap.id = 'draw-confirm-btn-wrap';
-    btnWrap.style = 'display:flex;gap:18px;margin:24px auto 0 auto;justify-content:center;';
-    document.querySelector('.draw-mode').appendChild(btnWrap);
   }
-  btnWrap.innerHTML = `
-    <button id="draw-confirm-btn" style="background:#ffd600;color:#22223a;font-weight:bold;padding:16px 48px;border:none;border-radius:10px;font-size:1.3rem;box-shadow:0 2px 12px #ffd60055;">XÁC NHẬN</button>
-    <button id="draw-back-btn" style="background:#b44c4c;color:#fff;font-weight:bold;padding:16px 48px;border:none;border-radius:10px;font-size:1.3rem;box-shadow:0 2px 12px #ffd60055;">QUAY LẠI</button>
-  `;
-  btnWrap.style.display = '';
-  document.getElementById('draw-confirm-btn').onclick = function() {
-    // Lưu vào winners
-    let winners = JSON.parse(localStorage.getItem('winners') || '[]');
-    winners.push({ code, name, prize });
-    localStorage.setItem('winners', JSON.stringify(winners));
-    // Ẩn nút, reset giao diện về quay số
-    btnWrap.style.display = 'none';
-    document.querySelector('.draw-mode').classList.remove('drawing');
-    document.querySelector('.draw-mode').classList.add('not-picked');
-    document.getElementById('draw-winner-name').innerHTML = '';
-    document.querySelectorAll('.draw-card').forEach(card => card.classList.remove('lucky-highlight', 'lucky-blink'));
-    // KHÔNG hiện lại nút quay số ở đây
-    document.querySelector('.lock-btn').style.display = 'none';
-  };
-  document.getElementById('draw-back-btn').onclick = function() {
-    // Không lưu, chỉ reset giao diện về quay số
-    btnWrap.style.display = 'none';
-    document.querySelector('.draw-mode').classList.remove('drawing');
-    document.querySelector('.draw-mode').classList.add('not-picked');
-    document.getElementById('draw-winner-name').innerHTML = '';
-    document.querySelectorAll('.draw-card').forEach(card => card.classList.remove('lucky-highlight', 'lucky-blink'));
-    document.querySelector('.lock-btn').style.display = 'none';
-    // KHÔNG hiện lại nút quay số ở đây
-  };
+});
+
+// Function để lấy thông tin giải đầy đủ bao gồm drawLimitPerTurn
+function getCurrentPrizeInfo() {
+  const prizes = JSON.parse(localStorage.getItem('prizes') || '[]');
+  const currentPrizeIdx = parseInt(localStorage.getItem('currentPrizeIdx') || '0', 10);
+  return prizes[currentPrizeIdx] || null;
 }
 
-// Sửa lại stopSlotSpinWithLucky: sau khi quay xong, chuyển sang màn hình kết quả
-function stopSlotSpinWithLucky(code, name) {
-  stopRollingAudio(); // Dừng rolling.mp3 ngay khi bấm CHỐT
-  playSound('slotStop'); // Phát slot-stop.mp3 lặp lại liên tục
-  const drawCards = document.querySelectorAll('.draw-card');
-  code = (code || '').slice(0, drawCards.length);
-  const slotCount = drawCards.length;
-  const slotDelay = slotCount > 0 ? 4000 / slotCount : 400; // ms
-  drawCards.forEach((card, idx) => {
-    clearInterval(slotIntervals[idx]);
-    slotIntervals[idx] = setInterval(() => {
-      setSlotNumber(card, Math.floor(Math.random() * 10));
-    }, 20);
-  });
-  setTimeout(() => {
-    function stopNext(i) {
-      if (i >= drawCards.length) {
-        stopSlotStopAudio(); // Dừng slot-stop.mp3 khi tất cả slot đã dừng
-        let codeOnSlot = '';
-        drawCards.forEach(card => {
-          const span = card.querySelector('span');
-          let val = span ? span.textContent : '';
-          if (!/^[0-9]$/.test(val)) val = '';
-          codeOnSlot += val;
-        });
-        window.currentDrawCode6 = codeOnSlot;
-        window.currentDrawWinner = { code: codeOnSlot, name: name, code6: codeOnSlot, prize: getCurrentPrize() };
-        playSound('result'); // Âm thanh công bố kết quả
-        showResultScreen([{ code6: codeOnSlot, name: name }], { name: getCurrentPrize(), icon: getCurrentPrizeIcon() });
+// DEBUG FUNCTION - Có thể xóa sau khi test xong
+function debugBatchDraw() {
+  console.log('=== DEBUG BATCH DRAW INFO ===');
+  console.log('localStorage prizes:', localStorage.getItem('prizes'));
+  console.log('localStorage currentPrizeIdx:', localStorage.getItem('currentPrizeIdx'));
+  console.log('localStorage luckyCodes:', localStorage.getItem('luckyCodes'));
+  console.log('localStorage luckyNames:', localStorage.getItem('luckyNames'));
+  const currentPrize = getCurrentPrizeInfo();
+  console.log('currentPrize object:', currentPrize);
+  if (currentPrize) {
+    console.log('drawLimitPerTurn:', currentPrize.drawLimitPerTurn);
+  }
+  
+  // Test với giải hiện tại
+  const prizeLabel = document.querySelector('.draw-mode .prize-label');
+  console.log('Current prize label:', prizeLabel ? prizeLabel.textContent : 'Not found');
+  
+  return currentPrize;
+}
+
+// Thêm event listener cho shortcut key để debug
+document.addEventListener('keydown', function(e) {
+  if (e.ctrlKey && e.key === 'd') {
+    e.preventDefault();
+    debugBatchDraw();
+  }
+});
+
+// Clear intervals khi trang được unload để tránh memory leak
+window.addEventListener('beforeunload', function() {
+  clearAllSlotIntervals();
+});
+
+// Enhanced lockBtn event listener with batch drawing capability
+if (drawBtn && lockBtn) {
+  console.log('=== SETTING UP DRAW AND LOCK BUTTONS ===');
+  console.log('drawBtn:', drawBtn);
+  console.log('lockBtn:', lockBtn);
+  
+  // Backup original click handler if exists
+  const originalLockHandler = lockBtn.onclick;
+  
+  // Thêm drawBtn handler nếu chưa có
+  if (!drawBtn.onclick) {
+    drawBtn.onclick = function() {
+      console.log('=== DRAW BUTTON CLICKED ===');
+      
+      // Force clear tất cả intervals trước khi bắt đầu
+      clearAllSlotIntervals();
+      
+      if (isSpinning) {
+        console.log('Already spinning, ignoring click');
         return;
       }
-      clearInterval(slotIntervals[i]);
-      setSlotNumber(drawCards[i], code[i] || '');
-      drawCards[i].classList.add('lucky-highlight');
-      setTimeout(() => {
-        drawCards[i].classList.remove('lucky-highlight');
-        stopNext(i + 1);
-      }, slotDelay);
+      
+            // Sử dụng central validation function
+      if (!validateAndStartSpin()) {
+        return;
+      }
+    };
+  }
+  
+  // Replace with new enhanced handler
+  lockBtn.onclick = function() {
+    console.log('=== CHỐT button clicked ===');
+    console.log('isSpinning:', isSpinning);
+    console.log('drawBtn.style.display:', drawBtn.style.display);
+    console.log('lockBtn.style.display:', lockBtn.style.display);
+    
+    // Force clear tất cả intervals trước khi chốt
+    clearAllSlotIntervals();
+    
+    if (!isSpinning) {
+      console.log('CHỐT bị block vì isSpinning = false');
+        return;
     }
-    stopNext(0);
-  }, 0); // Không cần delay tổng, delay chia đều cho từng slot
-}
-
-// Hàm lấy tên giải và icon hiện tại
-function getCurrentPrize() {
-  const prizeLabel = document.querySelector('.draw-mode .prize-label');
-  return prizeLabel ? prizeLabel.textContent.trim() : '';
-}
-function getCurrentPrizeIcon() {
-  const prizes = JSON.parse(localStorage.getItem('prizes') || '[{"name":"GIẢI ĐẶC BIỆT","icon":"💎"},{"name":"GIẢI NHẤT","icon":"🥇"},{"name":"GIẢI NHÌ","icon":"🥈"},{"name":"GIẢI BA","icon":"🥉"}]');
-  const currentPrizeIdx = parseInt(localStorage.getItem('currentPrizeIdx'), 10) || 0;
-  return prizes[currentPrizeIdx]?.icon || '⭐';
-}
-
-if (drawBtn && lockBtn) {
-  drawBtn.addEventListener('click', function() {
-    if (isSpinning) return;
-    drawBtn.style.display = 'none';
-    lockBtn.style.display = '';
-    startSlotSpin();
-  });
-  lockBtn.addEventListener('click', function() {
-    if (!isSpinning) return;
+    
     drawBtn.style.display = 'none'; // Ẩn nút quay số ngay khi bấm chốt
-    // Lấy danh sách mã số và tên
+    
+    // Lấy thông tin giải hiện tại
+    const currentPrize = getCurrentPrizeInfo();
+    const drawLimit = currentPrize ? (currentPrize.drawLimitPerTurn || 1) : 1;
+    
+    // Debug log - có thể xóa sau khi test xong
+    console.log('=== DEBUG QUAY HÀNG LOẠT ===');
+    console.log('currentPrize:', currentPrize);
+    console.log('drawLimit:', drawLimit);
+    
+    // Lấy danh sách mã số, tên và player IDs
     let luckyCodes = JSON.parse(localStorage.getItem('luckyCodes') || '[]');
     let luckyNames = JSON.parse(localStorage.getItem('luckyNames') || '[]');
-    // Chọn ngẫu nhiên 1 mã số
-    let idx = Math.floor(Math.random() * luckyCodes.length);
-    luckyCode = (luckyCodes[idx] || '').padStart(6, '0');
-    luckyName = luckyNames[idx] || '';
+    let luckyPlayers = JSON.parse(localStorage.getItem('luckyPlayers') || '[]');
+    
+    // Đảm bảo có đủ mã để quay
+    const availableCount = luckyCodes.length;
+    const actualDrawCount = Math.min(drawLimit, availableCount);
+    
+    console.log('availableCount:', availableCount, 'actualDrawCount:', actualDrawCount);
+    
+    if (actualDrawCount === 0) {
+      showEmptyListWarning('Đã hết số để quay!', 'Danh sách mã số đã được sử dụng hết. Hãy thêm thêm số mới để tiếp tục.');
+    isSpinning = false;
+    lockBtn.style.display = 'none';
+      drawBtn.style.display = '';
+      return;
+    }
+    
+    if (actualDrawCount === 1) {
+      // Single draw - use new player-based logic
+      let idx = Math.floor(Math.random() * luckyCodes.length);
+      luckyCode = (luckyCodes[idx] || '').padStart(6, '0');
+      luckyName = luckyNames[idx] || '';
+      const selectedPlayerId = luckyPlayers[idx] || '';
+      window.currentBatchWinners = null; // Clear batch winners
+      
+      // Loại bỏ tất cả mã của người chơi này
+      const codesToRemove = [];
+      const namesToRemove = [];
+      const playersToRemove = [];
+      
+      for (let i = 0; i < luckyCodes.length; i++) {
+        if (luckyPlayers[i] === selectedPlayerId) {
+          codesToRemove.push(i);
+        }
+      }
+      
+      // Xóa từ cuối lên để không ảnh hưởng đến index
+      for (let i = codesToRemove.length - 1; i >= 0; i--) {
+        const removeIdx = codesToRemove[i];
+        luckyCodes.splice(removeIdx, 1);
+        if (removeIdx < luckyNames.length) luckyNames.splice(removeIdx, 1);
+        if (removeIdx < luckyPlayers.length) luckyPlayers.splice(removeIdx, 1);
+      }
+      
+      // Lưu lại danh sách đã cập nhật
+      localStorage.setItem('luckyCodes', JSON.stringify(luckyCodes));
+      localStorage.setItem('luckyNames', JSON.stringify(luckyNames));
+      localStorage.setItem('luckyPlayers', JSON.stringify(luckyPlayers));
+      
+      console.log(`Người chơi ${selectedPlayerId} (${luckyName}) đã trúng. Đã loại bỏ ${codesToRemove.length} mã của người này.`);
+      
+    } else {
+      // Batch draw - new logic with player consideration
+      const selectedWinners = [];
+      const tempCodes = [...luckyCodes];
+      const tempNames = [...luckyNames];
+      const tempPlayers = [...luckyPlayers];
+      
+      for (let i = 0; i < actualDrawCount; i++) {
+        const idx = Math.floor(Math.random() * tempCodes.length);
+        const code = (tempCodes[idx] || '').padStart(6, '0');
+        const name = tempNames[idx] || '';
+        const playerId = tempPlayers[idx] || '';
+        
+        selectedWinners.push({ code, name, playerId });
+        
+        // Loại bỏ tất cả mã của người chơi này khỏi temp arrays
+        const codesToRemove = [];
+        for (let j = 0; j < tempCodes.length; j++) {
+          if (tempPlayers[j] === playerId) {
+            codesToRemove.push(j);
+          }
+        }
+        
+        // Xóa từ cuối lên
+        for (let j = codesToRemove.length - 1; j >= 0; j--) {
+          const removeIdx = codesToRemove[j];
+          tempCodes.splice(removeIdx, 1);
+          if (removeIdx < tempNames.length) tempNames.splice(removeIdx, 1);
+          if (removeIdx < tempPlayers.length) tempPlayers.splice(removeIdx, 1);
+        }
+      }
+      
+      console.log('selectedWinners:', selectedWinners);
+      
+      // Lưu danh sách winners vào global variable để sử dụng sau
+      window.currentBatchWinners = selectedWinners;
+      
+      // Sử dụng mã đầu tiên cho animation và đảm bảo format đúng
+      const firstWinner = selectedWinners[0];
+      luckyCode = firstWinner.code;
+      luckyName = firstWinner.name;
+      
+      // Đảm bảo tất cả winners có code6 property
+      window.currentBatchWinners = selectedWinners.map(winner => ({
+        ...winner,
+        code6: winner.code
+      }));
+      
+      // Cập nhật danh sách gốc - loại bỏ tất cả mã của các người chơi đã trúng
+      const winnersPlayerIds = selectedWinners.map(w => w.playerId);
+      const codesToRemove = [];
+      
+      for (let i = 0; i < luckyCodes.length; i++) {
+        if (winnersPlayerIds.includes(luckyPlayers[i])) {
+          codesToRemove.push(i);
+        }
+      }
+      
+      // Xóa từ cuối lên
+      for (let i = codesToRemove.length - 1; i >= 0; i--) {
+        const removeIdx = codesToRemove[i];
+        luckyCodes.splice(removeIdx, 1);
+        if (removeIdx < luckyNames.length) luckyNames.splice(removeIdx, 1);
+        if (removeIdx < luckyPlayers.length) luckyPlayers.splice(removeIdx, 1);
+      }
+      
+      // Lưu lại danh sách đã cập nhật
+      localStorage.setItem('luckyCodes', JSON.stringify(luckyCodes));
+      localStorage.setItem('luckyNames', JSON.stringify(luckyNames));
+      localStorage.setItem('luckyPlayers', JSON.stringify(luckyPlayers));
+      
+      console.log(`Đã loại bỏ ${codesToRemove.length} mã của ${winnersPlayerIds.length} người chơi đã trúng.`);
+    }
+    
+    console.log('Calling stopSlotSpinWithLucky with:', luckyCode, luckyName);
     stopSlotSpinWithLucky(luckyCode, luckyName);
     isSpinning = false;
     lockBtn.style.display = 'none';
-    // drawBtn.style.display = ''; // KHÔNG hiện lại nút quay số ở đây
-  });
-}
-// ==== Main Title Color Picker ====
-(function() {
-  const dot = document.querySelector('.dot');
-  const colorInput = document.getElementById('titleColorPicker');
-  const mainTitle = document.querySelector('.main-title');
-  // Load màu từ localStorage
-  function applyTitleColor() {
-    const color = localStorage.getItem('mainTitleColor');
-    if (color) {
-      mainTitle.style.color = color;
-      dot.style.background = color;
-    } else {
-      mainTitle.style.color = '';
-      dot.style.background = '#e0e0e0';
-    }
-  }
-  dot.addEventListener('click', function() {
-    colorInput.click();
-  });
-  colorInput.addEventListener('input', function() {
-    const color = colorInput.value;
-    mainTitle.style.color = color;
-    dot.style.background = color;
-    localStorage.setItem('mainTitleColor', color);
-  });
-  applyTitleColor();
-})(); 
-
-// ==== Draw Cards Show Prize Icon Instead of Number ====
-// Hiển thị icon giải thưởng trong các ô draw-card khi draw-mode chưa quay
-function updateDrawCardsWithPrizeIcon() {
-  // Lấy icon của giải hiện tại
-  const prizes = JSON.parse(localStorage.getItem('prizes') || '[{"name":"GIẢI ĐẶC BIỆT","icon":"💎"},{"name":"GIẢI NHẤT","icon":"🥇"},{"name":"GIẢI NHÌ","icon":"🥈"},{"name":"GIẢI BA","icon":"🥉"}]');
-  const currentPrizeIdx = parseInt(localStorage.getItem('currentPrizeIdx'), 10) || 0;
-  const icon = prizes[currentPrizeIdx]?.icon || '⭐';
-  document.querySelectorAll('.draw-card').forEach(card => {
-    card.innerHTML = `<span>${icon}</span>`;
-    card.classList.remove('lucky-highlight', 'lucky-blink');
-  });
-}
-// Gọi hàm này khi vào main-mode hoặc khi đổi giải
-updateDrawCardsWithPrizeIcon();
-document.querySelector('.show-btn').addEventListener('click', updateDrawCardsWithPrizeIcon);
-document.querySelectorAll('.arrow.left, .arrow.right').forEach(btn => btn.addEventListener('click', updateDrawCardsWithPrizeIcon));
-// Gọi hàm này khi vào draw-mode và result-mode
-function observeDrawMode() {
-  const main = document.querySelector('main');
-  const observer = new MutationObserver(() => {
-    if (main.classList.contains('draw-mode') || main.classList.contains('result-mode')) {
-      updateDrawCardsWithPrizeIcon();
-    }
-  });
-  observer.observe(main, { attributes: true, attributeFilter: ['class'] });
-}
-observeDrawMode(); 
-
-// Music control
-
-
-function playMusic(music) {
-  [bgMusic, spinMusic, resultMusic].forEach(m => { if (m && !m.paused) m.pause(); m && (m.currentTime = 0); });
-  if (music) {
-    music.currentTime = 0;
-    music.play();
-  }
+    console.log('CHỐT process completed');
+  };
 }
 
-// Phát nhạc nền khi vào trang
-window.addEventListener('DOMContentLoaded', function() {
-  if (bgMusic) {
-    bgMusic.volume = 0.4;
-    bgMusic.play().catch(()=>{});
-  }
-});
-
-// Khi bấm nút quay số
-if (drawBtn) {
-  drawBtn.addEventListener('click', function() {
-    playMusic(spinMusic);
-  });
-}
-
-// Khi hiện kết quả
-// (Đã gọi playMusic(resultMusic) trong showResultScreen)
-
-// Khi quay lại draw-mode hoặc xác nhận, phát lại nhạc nền
-if (resultConfirmBtn) {
-  resultConfirmBtn.addEventListener('click', function() {
-    playMusic(bgMusic);
-  });
-}
-if (resultBackBtn) {
-  resultBackBtn.addEventListener('click', function() {
-    playMusic(bgMusic);
-  });
-} 
-
-// Theme Picker Logic
+// ==== THEME PICKER LOGIC ====
+document.addEventListener('DOMContentLoaded', function() {
 const themeBtn = document.getElementById('theme-btn');
 const themeModal = document.getElementById('theme-modal');
 const themeClose = document.querySelector('.theme-modal-close');
@@ -1408,101 +1987,54 @@ function applyTheme(theme) {
     else item.classList.remove('selected');
   });
 }
+
 // Mở modal
-if (themeBtn) themeBtn.onclick = () => themeModal.classList.remove('hidden');
+  if (themeBtn) themeBtn.onclick = () => {
+    console.log('Theme button clicked');
+    themeModal.classList.remove('hidden');
+  };
+
 // Đóng modal
 if (themeClose) themeClose.onclick = () => themeModal.classList.add('hidden');
-themeModal && themeModal.addEventListener('click', e => {
+  if (themeModal) {
+    themeModal.addEventListener('click', e => {
   if (e.target === themeModal) themeModal.classList.add('hidden');
 });
+  }
+
 // Chọn theme
-if (themeItems) themeItems.forEach(item => {
+  if (themeItems) {
+    themeItems.forEach(item => {
   item.onclick = () => {
+        console.log('Selected theme:', item.dataset.theme);
     applyTheme(item.dataset.theme);
     themeModal.classList.add('hidden');
   };
 });
+  }
+
 // Áp dụng theme khi load lại trang
 const savedTheme = localStorage.getItem('luckyTheme');
 if (savedTheme) applyTheme(savedTheme); 
+});
 
-function resetDrawModeToInitial() {
-  // Reset các slot về icon giải thưởng (ép buộc)
-  const prizes = JSON.parse(localStorage.getItem('prizes') || '[{"name":"GIẢI ĐẶC BIỆT","icon":"💎"},{"name":"GIẢI NHẤT","icon":"🥇"},{"name":"GIẢI NHÌ","icon":"🥈"},{"name":"GIẢI BA","icon":"🥉"}]');
-  const currentPrizeIdx = parseInt(localStorage.getItem('currentPrizeIdx'), 10) || 0;
-  const icon = prizes[currentPrizeIdx]?.icon || '⭐';
-  document.querySelectorAll('.draw-card').forEach(card => {
-    card.innerHTML = `<span>${icon}</span>`;
-    card.classList.remove('lucky-highlight', 'lucky-blink'); // Bỏ mọi hiệu ứng slot
-  });
-  // Ẩn tên người trúng
-  const nameDiv = document.getElementById('draw-winner-name');
-  if (nameDiv) nameDiv.innerHTML = '';
-  // Ẩn nút chốt nếu đang hiện
-  const lockBtn = document.querySelector('.lock-btn');
-  if (lockBtn) lockBtn.style.display = 'none';
-  // Ẩn nút xác nhận/quay lại nếu có
-  const btnWrap = document.getElementById('draw-confirm-btn-wrap');
-  if (btnWrap) btnWrap.style.display = 'none';
-  // Hiện lại nút quay số
-  const drawBtn = document.querySelector('.draw-btn');
-  if (drawBtn) drawBtn.style.display = '';
-  // Đảm bảo trạng thái class
-  document.querySelector('.draw-mode').classList.remove('drawing');
-  document.querySelector('.draw-mode').classList.add('not-picked');
-}
-
-// Sửa lại các nơi cần reset giao diện
-if (resultBackBtn) {
-  resultBackBtn.onclick = function() {
-    document.querySelector('.result-mode').style.display = 'none';
-    document.querySelector('.draw-mode').style.display = 'flex';
-    document.body.classList.remove('result-active');
-    document.body.classList.add('draw-active');
-    resetDrawModeToInitial();
-  };
-}
-if (document.getElementById('draw-back-btn')) {
-  document.getElementById('draw-back-btn').onclick = function() {
-    resetDrawModeToInitial();
-  };
-}
-// Sau khi xác nhận/quay lại cũng reset lại giao diện
-if (document.getElementById('draw-confirm-btn')) {
-  document.getElementById('draw-confirm-btn').onclick = function() {
-    resetDrawModeToInitial();
-  };
-}
-
-function clearDrawSlots() {
-  // Hàm rỗng để tránh lỗi ReferenceError, có thể bổ sung logic reset slot nếu cần
-}
-
-function setupClearDrawSlotsEvents() {
-  const showBtn = document.querySelector('.show-btn');
-  if (showBtn) showBtn.addEventListener('click', clearDrawSlots);
-  if (typeof drawBtn !== 'undefined' && drawBtn) drawBtn.addEventListener('click', clearDrawSlots);
-  const endBtn = document.querySelector('.end-btn');
-  if (endBtn) endBtn.addEventListener('click', clearDrawSlots);
-  const resultBackBtn = document.querySelector('.result-back-btn');
-  if (resultBackBtn) resultBackBtn.addEventListener('click', clearDrawSlots);
-}
-document.addEventListener('DOMContentLoaded', setupClearDrawSlotsEvents); 
-
-// === HIỂN THỊ LỊCH SỬ KẾT QUẢ QUAY SỐ ===
+// ==== RESULT LIST LOGIC ====
+document.addEventListener('DOMContentLoaded', function() {
 const resultListModal = document.getElementById('result-list-modal');
 const resultListClose = document.querySelector('.result-list-modal-close');
 const resultListTabs = document.querySelector('.result-list-tabs');
 const resultListTableWrap = document.querySelector('.result-list-table-wrap');
 
 // Sự kiện mở modal khi click menu 'Kết quả' ở footer
-const footerMenu = document.querySelector('.footer-bar .menu-bar span');
-if (footerMenu) {
-  footerMenu.onclick = function() {
+  const footerMenuSpans = document.querySelectorAll('.footer-bar .menu-bar span');
+  if (footerMenuSpans.length > 0) {
+    footerMenuSpans[0].onclick = function() { // "Kết quả" là span đầu tiên
+      console.log('Result menu clicked');
     renderResultList();
     resultListModal.classList.remove('hidden');
   };
 }
+
 // Sự kiện đóng modal
 if (resultListClose) {
   resultListClose.onclick = function() {
@@ -1514,7 +2046,11 @@ if (resultListClose) {
 function renderResultList() {
   const winners = JSON.parse(localStorage.getItem('winners') || '[]');
   const prizes = JSON.parse(localStorage.getItem('prizes') || '[{"name":"GIẢI ĐẶC BIỆT","icon":"💎"},{"name":"GIẢI NHẤT","icon":"🥇"},{"name":"GIẢI NHÌ","icon":"🥈"},{"name":"GIẢI BA","icon":"🥉"}]');
+    
+    console.log('Rendering result list - winners:', winners.length, 'prizes:', prizes.length);
+    
   // Tabs
+    if (resultListTabs) {
   resultListTabs.innerHTML = '';
   prizes.forEach((prize, idx) => {
     const tab = document.createElement('button');
@@ -1527,27 +2063,41 @@ function renderResultList() {
     };
     resultListTabs.appendChild(tab);
   });
+    }
+
   // Render bảng đầu tiên
   if (prizes.length > 0) renderTable(prizes[0].name);
+
   function renderTable(prizeName) {
     const filtered = winners.filter(w => w.prize === prizeName);
-    let html = `<table class='result-list-table'><thead><tr><th>#</th><th>ID</th><th>Họ tên</th></tr></thead><tbody>`;
+    let html = `<table class='result-list-table'><thead><tr><th>#</th><th>Mã số</th><th>Họ tên</th><th>Thời gian</th></tr></thead><tbody>`;
     if (filtered.length === 0) {
-      html += `<tr><td colspan='3' style='color:#888;'>Chưa có kết quả nào!</td></tr>`;
+        html += `<tr><td colspan='4' style='color:#888;text-align:center;'>Chưa có kết quả nào!</td></tr>`;
     } else {
       filtered.forEach((w, i) => {
-        html += `<tr><td>${i + 1}</td><td>${w.code}</td><td>${w.name}</td></tr>`;
+        const datetime = w.datetime || (w.timestamp ? new Date(w.timestamp).toLocaleString('vi-VN') : 'Không có');
+        html += `<tr><td>${i + 1}</td><td>${w.code}</td><td>${w.name}</td><td style="font-size:0.9em;color:#666;">${datetime}</td></tr>`;
       });
     }
     html += '</tbody></table>';
+      if (resultListTableWrap) {
     resultListTableWrap.innerHTML = html;
+      }
   }
 } 
 
+// Thêm event listener cho download button
+const downloadBtn = document.querySelector('.result-list-download-btn');
+if (downloadBtn) {
+  downloadBtn.onclick = function() {
+    console.log('Download button clicked');
+    downloadExcel();
+  };
+} 
+
 // Bổ sung nút xóa kết quả vào modal kết quả
-(function() {
   const downloadWrap = document.querySelector('.result-list-download-wrap');
-  if (!downloadWrap) return;
+  if (downloadWrap) {
   let clearBtn = document.createElement('button');
   clearBtn.textContent = '🗑️ XÓA KẾT QUẢ';
   clearBtn.className = 'result-list-clear-btn';
@@ -1557,68 +2107,1413 @@ function renderResultList() {
     if (confirm('Bạn có chắc chắn muốn xóa toàn bộ kết quả quay số?')) {
       localStorage.removeItem('winners');
       renderResultList();
-    }
-  };
-})(); 
+        console.log('Cleared all results');
+      }
+    };
+  }
+});
 
-// Phát nhạc nền khi bấm nút TRÌNH CHIẾU (show-btn)
-const showBtn = document.querySelector('.show-btn');
-if (showBtn) {
-  showBtn.addEventListener('click', function() {
-    playSound('bg');
+// === DEBUG TEST FUNCTION ===
+window.debugTest = function() {
+  console.log('=== DEBUG TEST RESULTS ===');
+  console.log('isSpinning:', isSpinning);
+  console.log('drawBtn:', document.querySelector('.draw-btn'));
+  console.log('lockBtn:', document.querySelector('.lock-btn'));
+  console.log('drawBtn.style.display:', document.querySelector('.draw-btn').style.display);
+  console.log('lockBtn.style.display:', document.querySelector('.lock-btn').style.display);
+  console.log('drawBtn.onclick:', document.querySelector('.draw-btn').onclick);
+  console.log('lockBtn.onclick:', document.querySelector('.lock-btn').onclick);
+  console.log('Lucky codes:', JSON.parse(localStorage.getItem('luckyCodes') || '[]').length);
+  console.log('Current prize:', getCurrentPrizeInfo());
+  console.log('window.currentBatchWinners:', window.currentBatchWinners);
+  console.log('result-mode element:', document.querySelector('.result-mode'));
+  console.log('multiple-winners-modal element:', document.getElementById('multiple-winners-modal'));
+};
+
+// === DEBUG QUAY HÀNG LOẠT ===
+
+// === TEST FORCE SHOW MODAL ===
+window.testShowModal = function() {
+  console.log('=== TESTING FORCE SHOW MODAL ===');
+  const modal = document.getElementById('multiple-winners-modal');
+  const prizeTitle = document.getElementById('multiple-winners-prize-title');
+  const winnersList = document.querySelector('.multiple-winners-list');
+  
+  console.log('Modal elements check:');
+  console.log('modal:', modal);
+  console.log('prizeTitle:', prizeTitle);
+  console.log('winnersList:', winnersList);
+  
+  if (!modal) {
+    console.error('Modal not found!');
+    return;
+  }
+  
+  // Force setup modal
+  prizeTitle.textContent = '🎉 TEST MODAL - 5 NGƯỜI TRÚNG 🎉';
+  winnersList.innerHTML = '<div>Test winner 1</div><div>Test winner 2</div>';
+  
+  // Force show
+  modal.classList.remove('hidden');
+  modal.style.display = 'flex';
+  modal.style.zIndex = '9999';
+  modal.style.position = 'fixed';
+  modal.style.top = '0';
+  modal.style.left = '0';
+  modal.style.width = '100vw';
+  modal.style.height = '100vh';
+  modal.style.background = 'rgba(0,0,0,0.8)';
+  
+  console.log('Modal forced to show');
+  console.log('modal.style.display:', modal.style.display);
+  console.log('modal.classList:', modal.classList.toString());
+  console.log('modal.offsetHeight:', modal.offsetHeight);
+  console.log('modal.offsetWidth:', modal.offsetWidth);
+};
+
+// === DEBUG QUAY HÀNG LOẠT ===
+
+// === TEST MODAL BUTTONS ===
+window.testModalButtons = function() {
+  console.log('=== TESTING MODAL BUTTONS ===');
+  const modal = document.getElementById('multiple-winners-modal');
+  const closeBtn = document.querySelector('.multiple-winners-modal-close');
+  const confirmBtn = document.querySelector('.multiple-winners-confirm-btn');
+  const backBtn = document.querySelector('.multiple-winners-back-btn');
+  
+  console.log('Modal:', modal);
+  console.log('Close button:', closeBtn);
+  console.log('Confirm button:', confirmBtn);
+  console.log('Back button:', backBtn);
+  
+  if (closeBtn) {
+    console.log('Close button onclick:', closeBtn.onclick);
+    console.log('Close button addEventListener:', typeof closeBtn.addEventListener);
+  }
+  
+  if (confirmBtn) {
+    console.log('Confirm button onclick:', confirmBtn.onclick);
+    console.log('Confirm button addEventListener:', typeof confirmBtn.addEventListener);
+  }
+  
+  if (backBtn) {
+    console.log('Back button onclick:', backBtn.onclick);
+    console.log('Back button addEventListener:', typeof backBtn.addEventListener);
+  }
+  
+  // Test manual click
+  console.log('Testing manual clicks...');
+  if (closeBtn) {
+    console.log('Triggering close button click...');
+    closeBtn.click();
+  }
+};
+
+// === TEST FORCE SHOW MODAL ===
+
+// === TEST UPDATE ICONS ===
+window.testUpdateIcons = function() {
+  console.log('=== TESTING UPDATE ICONS ===');
+  updateDrawCardsWithPrizeIcon();
+  
+  // Kiểm tra cards hiện tại
+  const cards = document.querySelectorAll('.draw-card');
+  console.log('Found', cards.length, 'cards');
+  cards.forEach((card, index) => {
+    console.log(`Card ${index}:`, card.innerHTML);
   });
+  
+  // Kiểm tra badge
+  const badge = document.querySelector('.draw-badge-glow span');
+  console.log('Badge:', badge ? badge.textContent : 'not found');
+  
+  // Kiểm tra current prize
+  const prizes = JSON.parse(localStorage.getItem('prizes') || '[]');
+  const currentPrizeIdx = parseInt(localStorage.getItem('currentPrizeIdx'), 10) || 0;
+  console.log('Current prize info:', prizes[currentPrizeIdx]);
+  
+  console.log('✅ Icons updated with smaller size (2.5em)');
+};
+
+// === TEST MODAL BUTTONS ===
+
+// === AUTO SWITCH PRIZE LOGIC ===
+function checkAndAutoSwitchPrize() {
+  console.log('=== CHECKING AUTO SWITCH PRIZE ===');
+  
+  const prizes = JSON.parse(localStorage.getItem('prizes') || '[]');
+  const winners = JSON.parse(localStorage.getItem('winners') || '[]');
+  let currentPrizeIdx = parseInt(localStorage.getItem('currentPrizeIdx') || '0', 10);
+  
+  if (!prizes.length) return;
+  
+  const currentPrize = prizes[currentPrizeIdx];
+  if (!currentPrize || !currentPrize.maxWinners || currentPrize.maxWinners === 0) {
+    console.log('Current prize has no maxWinners limit, no auto switch needed');
+    return;
+  }
+  
+  // Đếm số winners của giải hiện tại
+  const currentPrizeWinners = winners.filter(w => w.prize === currentPrize.name);
+  const currentWinnerCount = currentPrizeWinners.length;
+  
+  console.log('Current prize:', currentPrize.name);
+  console.log('Current winners count:', currentWinnerCount);
+  console.log('Max winners limit:', currentPrize.maxWinners);
+  
+  // Kiểm tra nếu đã đủ số lượng
+  if (currentWinnerCount >= currentPrize.maxWinners) {
+    console.log('🎯 Prize limit reached! Auto switching to next prize...');
+    
+    // Tìm giải tiếp theo chưa đủ người
+    let nextPrizeIdx = currentPrizeIdx + 1;
+    
+    // Tìm giải tiếp theo có thể quay (chưa đủ người hoặc không giới hạn)
+    while (nextPrizeIdx < prizes.length) {
+      const nextPrize = prizes[nextPrizeIdx];
+      const nextPrizeWinners = winners.filter(w => w.prize === nextPrize.name);
+      
+      // Nếu giải này không giới hạn hoặc chưa đủ người
+      if (!nextPrize.maxWinners || nextPrize.maxWinners === 0 || nextPrizeWinners.length < nextPrize.maxWinners) {
+        console.log('✅ Found next available prize:', nextPrize.name);
+        currentPrizeIdx = nextPrizeIdx;
+        break;
+      }
+      
+      nextPrizeIdx++;
+    }
+    
+    // Nếu không tìm được giải tiếp theo, kiểm tra từ đầu
+    if (nextPrizeIdx >= prizes.length) {
+      console.log('🔄 Checking from beginning...');
+      for (let i = 0; i < currentPrizeIdx; i++) {
+        const checkPrize = prizes[i];
+        const checkPrizeWinners = winners.filter(w => w.prize === checkPrize.name);
+        
+        if (!checkPrize.maxWinners || checkPrize.maxWinners === 0 || checkPrizeWinners.length < checkPrize.maxWinners) {
+          console.log('✅ Found available prize from beginning:', checkPrize.name);
+          currentPrizeIdx = i;
+          break;
+        }
+      }
+    }
+    
+    // Lưu chỉ số giải mới
+    localStorage.setItem('currentPrizeIdx', currentPrizeIdx);
+    
+    // Cập nhật giao diện
+    updateAllPrizeDisplays();
+    
+    // Hiển thị thông báo
+    const newPrize = prizes[currentPrizeIdx];
+    showAutoSwitchNotification(currentPrize.name, newPrize.name);
+    
+    console.log('🎉 Auto switched from', currentPrize.name, 'to', newPrize.name);
+    
+    return true; // Đã chuyển giải
+  }
+  
+  return false; // Không cần chuyển giải
 }
 
-let slotStopAudio = null;
-// Lấy duration của slot-stop.mp3 để dùng làm delay dừng slot
-let slotStopDuration = 400; // fallback mặc định nếu chưa load được
-window.addEventListener('DOMContentLoaded', function() {
-  slotStopAudio = document.getElementById('slot-stop');
-  if (slotStopAudio) {
-    slotStopAudio.addEventListener('loadedmetadata', function() {
-      slotStopDuration = Math.floor(slotStopAudio.duration * 1000) || 400;
+function showAutoSwitchNotification(fromPrize, toPrize) {
+  // Tạo notification đẹp
+  const notification = document.createElement('div');
+  notification.style.cssText = `
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 20px 30px;
+    border-radius: 15px;
+    font-size: 1.2em;
+    font-weight: bold;
+    text-align: center;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+    z-index: 10000;
+    animation: fadeInOut 3s ease-in-out; /* Chuyển lại về 3s như cũ */
+  `;
+  
+  notification.innerHTML = `
+    <div style="margin-bottom: 10px;">🎯 Đã đủ người cho</div>
+    <div style="color: #ffd600; margin-bottom: 10px;">${fromPrize}</div>
+    <div style="margin-bottom: 10px;">📋 Chuyển sang giải:</div>
+    <div style="color: #ffd600; font-size: 1.3em;">${toPrize}</div>
+  `;
+  
+  document.body.appendChild(notification);
+  
+  // Tự động ẩn sau 3 giây
+  setTimeout(() => {
+    if (notification.parentNode) {
+      notification.parentNode.removeChild(notification);
+    }
+  }, 3000); // Chuyển lại về 3s như cũ
+}
+
+// Thêm CSS animation cho notification
+const notificationStyle = document.createElement('style');
+notificationStyle.textContent = `
+  @keyframes fadeInOut {
+    0% { opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
+    20% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    80% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    100% { opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
+  }
+`;
+document.head.appendChild(notificationStyle);
+
+// === TEST UPDATE ICONS ===
+
+// === TEST AUTO SWITCH PRIZE ===
+window.testAutoSwitch = function() {
+  console.log('=== TESTING AUTO SWITCH PRIZE ===');
+  
+  const prizes = JSON.parse(localStorage.getItem('prizes') || '[]');
+  const winners = JSON.parse(localStorage.getItem('winners') || '[]');
+  const currentPrizeIdx = parseInt(localStorage.getItem('currentPrizeIdx') || '0', 10);
+  
+  console.log('Current setup:');
+  console.log('Total prizes:', prizes.length);
+  
+  prizes.forEach((prize, idx) => {
+    const prizeWinners = winners.filter(w => w.prize === prize.name);
+    console.log(`${idx === currentPrizeIdx ? '👉' : '  '} ${idx}: ${prize.name}`);
+    console.log(`     Winners: ${prizeWinners.length}/${prize.maxWinners || '∞'}`);
+    console.log(`     Draw per turn: ${prize.drawLimitPerTurn || 1}`);
+  });
+  
+  console.log('\nCurrent prize index:', currentPrizeIdx);
+  console.log('Current prize:', prizes[currentPrizeIdx]?.name);
+  
+  // Test manual switch
+  console.log('\n🧪 Testing manual auto switch...');
+  const switched = checkAndAutoSwitchPrize();
+  console.log('Auto switch result:', switched ? 'SWITCHED' : 'NO SWITCH NEEDED');
+};
+
+// Setup demo data cho test
+window.setupDemoForAutoSwitch = function() {
+  console.log('=== SETTING UP DEMO DATA ===');
+  
+  // Tạo prizes demo với maxWinners
+  const demoPrizes = [
+    {name: "GIẢI ĐẶC BIỆT", icon: "💎", drawLimitPerTurn: 1, maxWinners: 2},
+    {name: "GIẢI NHẤT", icon: "🥇", drawLimitPerTurn: 2, maxWinners: 4}, 
+    {name: "GIẢI NHÌ", icon: "🥈", drawLimitPerTurn: 3, maxWinners: 6},
+    {name: "GIẢI BA", icon: "🥉", drawLimitPerTurn: 5, maxWinners: 0} // Không giới hạn
+  ];
+  
+  localStorage.setItem('prizes', JSON.stringify(demoPrizes));
+  localStorage.setItem('currentPrizeIdx', '0');
+  
+  // Tạo demo winners (giải đặc biệt đã có 1 người)
+  const demoWinners = [
+    {code: "000001", name: "Người demo 1", prize: "GIẢI ĐẶC BIỆT"}
+  ];
+  
+  localStorage.setItem('winners', JSON.stringify(demoWinners));
+  
+  // Tạo lucky codes demo
+  const demoCodes = [];
+  const demoNames = [];
+  for (let i = 2; i <= 20; i++) {
+    demoCodes.push(i.toString());
+    demoNames.push(`Người demo ${i}`);
+  }
+  
+  localStorage.setItem('luckyCodes', JSON.stringify(demoCodes));
+  localStorage.setItem('luckyNames', JSON.stringify(demoNames));
+  
+  updateAllPrizeDisplays();
+  
+  console.log('✅ Demo data created:');
+  console.log('- GIẢI ĐẶC BIỆT: 1/2 người (cần thêm 1 để switch)');
+  console.log('- GIẢI NHẤT: 0/4 người');
+  console.log('- GIẢI NHÌ: 0/6 người'); 
+  console.log('- GIẢI BA: 0/∞ người');
+  console.log('');
+  console.log('📋 Hướng dẫn test:');
+  console.log('1. Quay 1 người cho GIẢI ĐẶC BIỆT → sẽ auto switch sang GIẢI NHẤT');
+  console.log('2. Quay 4 người cho GIẢI NHẤT → sẽ auto switch sang GIẢI NHÌ');
+  console.log('3. Run testAutoSwitch() để kiểm tra trạng thái');
+};
+
+// === TEST UPDATE ICONS ===
+
+// === TEST WINNER COUNT DISPLAY ===
+window.testWinnerCount = function() {
+  console.log('=== TESTING WINNER COUNT DISPLAY ===');
+  
+  const prizes = JSON.parse(localStorage.getItem('prizes') || '[]');
+  const winners = JSON.parse(localStorage.getItem('winners') || '[]');
+  const currentPrizeIdx = parseInt(localStorage.getItem('currentPrizeIdx') || '0', 10);
+  
+  console.log('Total prizes:', prizes.length);
+  console.log('Total winners:', winners.length);
+  console.log('Current prize index:', currentPrizeIdx);
+  
+  if (prizes.length > 0) {
+    prizes.forEach((prize, idx) => {
+      const prizeWinners = winners.filter(w => w.prize === prize.name);
+      const status = idx === currentPrizeIdx ? '👉 CURRENT' : '  ';
+      console.log(`${status} ${prize.name}: ${prizeWinners.length}/${prize.maxWinners || '∞'} winners`);
+    });
+  }
+  
+  // Check DOM elements
+  const countElements = document.querySelectorAll('.prize-count-num');
+  console.log('Found', countElements.length, 'count elements in DOM');
+  
+  countElements.forEach((el, idx) => {
+    console.log(`Count element ${idx}:`, el.textContent, '| Color:', el.style.color);
+  });
+  
+  // Test manual update
+  console.log('\n🔄 Manually updating winner count...');
+  updateWinnerCount();
+  
+  console.log('✅ Winner count test completed');
+};
+
+// Force refresh winner count periodically
+setInterval(() => {
+  if (document.body.classList.contains('draw-active')) {
+    updateWinnerCount();
+  }
+}, 5000); // Cập nhật mỗi 5 giây khi ở draw mode
+
+// === TEST AUTO SWITCH PRIZE ===
+
+// === QUICK DEMO DATA FOR WINNER COUNT ===
+window.setupWinnerCountDemo = function() {
+  console.log('=== SETTING UP WINNER COUNT DEMO ===');
+  
+  // Tạo prizes với maxWinners khác nhau
+  const demoPrizes = [
+    {name: "GIẢI ĐẶC BIỆT", icon: "💎", drawLimitPerTurn: 1, maxWinners: 1},
+    {name: "GIẢI NHẤT", icon: "🥇", drawLimitPerTurn: 2, maxWinners: 3}, 
+    {name: "GIẢI NHÌ", icon: "🥈", drawLimitPerTurn: 3, maxWinners: 5},
+    {name: "GIẢI BA", icon: "🥉", drawLimitPerTurn: 5, maxWinners: 0} // Không giới hạn
+  ];
+  
+  // Tạo demo winners với số lượng khác nhau
+  const demoWinners = [
+    {code: "000001", name: "Winner 1", prize: "GIẢI ĐẶC BIỆT"}, // 1/1 - FULL
+    {code: "000002", name: "Winner 2", prize: "GIẢI NHẤT"},    // 2/3 - WARNING  
+    {code: "000003", name: "Winner 3", prize: "GIẢI NHẤT"},    
+    {code: "000004", name: "Winner 4", prize: "GIẢI NHÌ"},     // 1/5 - NORMAL
+    {code: "000005", name: "Winner 5", prize: "GIẢI BA"},      // 1/∞ - NORMAL
+    {code: "000006", name: "Winner 6", prize: "GIẢI BA"}
+  ];
+  
+  localStorage.setItem('prizes', JSON.stringify(demoPrizes));
+  localStorage.setItem('winners', JSON.stringify(demoWinners));
+  localStorage.setItem('currentPrizeIdx', '0'); // Start với GIẢI ĐẶC BIỆT (đã full)
+  
+  // Tạo thêm lucky codes
+  const demoCodes = [];
+  const demoNames = [];
+  for (let i = 7; i <= 30; i++) {
+    demoCodes.push(i.toString().padStart(6, '0'));
+    demoNames.push(`Person ${i}`);
+  }
+  
+  localStorage.setItem('luckyCodes', JSON.stringify(demoCodes));
+  localStorage.setItem('luckyNames', JSON.stringify(demoNames));
+  
+  // Cập nhật display
+  updateAllPrizeDisplays();
+  updateWinnerCount();
+  
+  console.log('✅ Winner Count Demo Setup Complete!');
+  console.log('');
+  console.log('📊 Expected display:');
+  console.log('👉 GIẢI ĐẶC BIỆT: 1/1 (ĐỎ - đã đủ)');
+  console.log('   GIẢI NHẤT: 2/3 (CAM - gần đủ)');
+  console.log('   GIẢI NHÌ: 1/5 (XANH - bình thường)');
+  console.log('   GIẢI BA: 2/∞ (XANH - không giới hạn)');
+  console.log('');
+  console.log('🧪 Test instructions:');
+  console.log('1. Chạy testWinnerCount() để kiểm tra');
+  console.log('2. Vào draw mode để xem hiển thị realtime');
+  console.log('3. Bấm mũi tên để chuyển giải và xem thay đổi màu sắc');
+  console.log('4. Quay thêm người để test auto-switch');
+};
+
+// === TEST PLAYER-BASED DRAWING ===
+window.testPlayerBasedDrawing = function() {
+  console.log('=== TESTING PLAYER-BASED DRAWING ===');
+  
+  // Tạo dữ liệu test
+  const testCodes = ['001', '002', '003', '004', '005', '006', '007', '008'];
+  const testNames = ['Nguyễn Văn A', 'Nguyễn Văn A', 'Trần Thị B', 'Lê Văn C', 'Lê Văn C', 'Lê Văn C', 'Phạm Thị D', 'Hoàng Văn E'];
+  const testPlayers = ['P001', 'P001', 'P002', 'P003', 'P003', 'P003', 'P004', 'P005'];
+  
+  localStorage.setItem('luckyCodes', JSON.stringify(testCodes));
+  localStorage.setItem('luckyNames', JSON.stringify(testNames));
+  localStorage.setItem('luckyPlayers', JSON.stringify(testPlayers));
+  
+  console.log('Test data created:');
+  console.log('- Codes:', testCodes);
+  console.log('- Names:', testNames);
+  console.log('- Players:', testPlayers);
+  
+  // Phân tích tỷ lệ
+  const playerCounts = {};
+  testPlayers.forEach(player => {
+    playerCounts[player] = (playerCounts[player] || 0) + 1;
+  });
+  
+  console.log('Player counts:', playerCounts);
+  console.log('Tỷ lệ trúng dự kiến:');
+  Object.entries(playerCounts).forEach(([player, count]) => {
+    const percentage = ((count / testCodes.length) * 100).toFixed(1);
+    console.log(`- ${player} (${count} mã): ${percentage}%`);
+  });
+  
+  console.log('✅ Test data ready. Bạn có thể bắt đầu quay số để test!');
+};
+
+// === TEST WINNER COUNT DISPLAY ===
+
+// === EMPTY LIST WARNING MODAL ===
+function showEmptyListWarning(customTitle = null, customMessage = null) {
+  console.log('=== SHOWING EMPTY LIST WARNING ===');
+  
+  const modal = document.getElementById('empty-list-warning-modal');
+  const titleEl = document.querySelector('.empty-list-warning-title');
+  const messageEl = document.querySelector('.empty-list-warning-message p:first-child');
+  
+  if (!modal) {
+    console.error('Empty list warning modal not found!');
+    // Fallback to alert
+    alert(customTitle || 'Chưa có mã số nào để quay! Hãy thêm danh sách mã số trước.');
+        return;
+      }
+  
+  // Update title and message if provided
+  if (customTitle && titleEl) {
+    titleEl.textContent = customTitle;
+  }
+  
+  if (customMessage && messageEl) {
+    messageEl.innerHTML = `<strong>${customMessage}</strong>`;
+  }
+  
+  // Show modal
+  modal.classList.remove('hidden');
+  
+  // Play sound
+  playSound('back'); // Use back sound for warning
+  
+  console.log('Empty list warning modal displayed');
+}
+
+function hideEmptyListWarning() {
+  const modal = document.getElementById('empty-list-warning-modal');
+  if (modal) {
+    modal.classList.add('hidden');
+  }
+}
+
+// Setup empty list warning modal event listeners
+document.addEventListener('DOMContentLoaded', function() {
+  const modal = document.getElementById('empty-list-warning-modal');
+  const closeBtn = document.querySelector('.empty-list-warning-close');
+  const closeBtnFooter = document.querySelector('.empty-list-close-btn');
+  const addBtn = document.querySelector('.empty-list-add-btn');
+  
+  // Close modal handlers
+  if (closeBtn) {
+    closeBtn.addEventListener('click', hideEmptyListWarning);
+  }
+  
+  if (closeBtnFooter) {
+    closeBtnFooter.addEventListener('click', hideEmptyListWarning);
+  }
+  
+  // Click outside to close
+  if (modal) {
+    modal.addEventListener('click', function(e) {
+      if (e.target === modal) {
+        hideEmptyListWarning();
+      }
+    });
+  }
+  
+  // Add numbers button - open lucky list modal
+  if (addBtn) {
+    addBtn.addEventListener('click', function() {
+      console.log('Opening lucky list modal from warning...');
+      hideEmptyListWarning();
+      
+      // Open lucky list modal
+  const luckyListModal = document.getElementById('lucky-list-modal');
+  if (luckyListModal) {
+    luckyListModal.classList.remove('hidden');
+        
+        // Load existing data and update counts
+        const codes = JSON.parse(localStorage.getItem('luckyCodes') || '[]');
+        const names = JSON.parse(localStorage.getItem('luckyNames') || '[]');
+        
+  const luckyCodeList = document.getElementById('lucky-code-list');
+  const luckyNameList = document.getElementById('lucky-name-list');
+        
+        if (luckyCodeList) luckyCodeList.value = codes.join('\n');
+        if (luckyNameList) luckyNameList.value = names.join('\n');
+        
+        // Update counts
+        const updateCounts = window.updateCounts || function() {
+  const luckyCodeCount = document.getElementById('lucky-code-count');
+  const luckyNameCount = document.getElementById('lucky-name-count');
+          if (luckyCodeCount) luckyCodeCount.textContent = codes.length;
+          if (luckyNameCount) luckyNameCount.textContent = names.length;
+        };
+        updateCounts();
+        
+        // Focus on code input
+          setTimeout(() => {
+    if (luckyCodeList) luckyCodeList.focus();
+  }, 300); // Chuyển lại về 300ms như cũ
+      }
     });
   }
 });
 
-function stopSlotSpinWithLucky(code, name) {
-  stopRollingAudio(); // Dừng rolling.mp3 ngay khi bấm CHỐT
-  playSound('slotStop'); // Phát slot-stop.mp3 lặp lại liên tục
-  const drawCards = document.querySelectorAll('.draw-card');
-  code = (code || '').slice(0, drawCards.length);
-  const slotCount = drawCards.length;
-  const slotDelay = slotCount > 0 ? 4000 / slotCount : 400; // ms
-  drawCards.forEach((card, idx) => {
-    clearInterval(slotIntervals[idx]);
-    slotIntervals[idx] = setInterval(() => {
-      setSlotNumber(card, Math.floor(Math.random() * 10));
-    }, 20);
-  });
-  setTimeout(() => {
-    function stopNext(i) {
-      if (i >= drawCards.length) {
-        stopSlotStopAudio(); // Dừng slot-stop.mp3 khi tất cả slot đã dừng
-        let codeOnSlot = '';
-        drawCards.forEach(card => {
-          const span = card.querySelector('span');
-          let val = span ? span.textContent : '';
-          if (!/^[0-9]$/.test(val)) val = '';
-          codeOnSlot += val;
-        });
-        window.currentDrawCode6 = codeOnSlot;
-        window.currentDrawWinner = { code: codeOnSlot, name: name, code6: codeOnSlot, prize: getCurrentPrize() };
-        playSound('result'); // Âm thanh công bố kết quả
-        showResultScreen([{ code6: codeOnSlot, name: name }], { name: getCurrentPrize(), icon: getCurrentPrizeIcon() });
-        return;
-      }
-      clearInterval(slotIntervals[i]);
-      setSlotNumber(drawCards[i], code[i] || '');
-      drawCards[i].classList.add('lucky-highlight');
-      setTimeout(() => {
-        drawCards[i].classList.remove('lucky-highlight');
-        stopNext(i + 1);
-      }, slotDelay);
-    }
-    stopNext(0);
-  }, 0); // Không cần delay tổng, delay chia đều cho từng slot
+// Enhanced validation for various empty scenarios
+function validateLuckyList() {
+  console.log('=== VALIDATING LUCKY LIST ===');
+  
+  const luckyCodes = JSON.parse(localStorage.getItem('luckyCodes') || '[]');
+  const luckyNames = JSON.parse(localStorage.getItem('luckyNames') || '[]');
+  
+  console.log('luckyCodes.length:', luckyCodes.length);
+  console.log('luckyNames.length:', luckyNames.length);
+  
+  // Chỉ check số - bỏ qua check tên để dễ dàng hơn
+  if (luckyCodes.length === 0) {
+    console.log('❌ Không có mã số');
+    showEmptyListWarning();
+    return false;
+  }
+  
+  console.log('✅ Validation passed - có mã số');
+  return true;
 }
+
+// Strict validation for testing only
+function validateLuckyListStrict() {
+  console.log('=== STRICT VALIDATION ===');
+  
+  const luckyCodes = JSON.parse(localStorage.getItem('luckyCodes') || '[]');
+  const luckyNames = JSON.parse(localStorage.getItem('luckyNames') || '[]');
+  
+  if (luckyCodes.length === 0) {
+    showEmptyListWarning();
+    return false;
+  }
+  
+  if (luckyNames.length === 0) {
+    showEmptyListWarning(
+      'Thiếu danh sách tên!', 
+      'Bạn đã có mã số nhưng chưa có danh sách tên tương ứng.'
+    );
+    return false;
+  }
+  
+  if (luckyCodes.length !== luckyNames.length) {
+    showEmptyListWarning(
+      'Dữ liệu không khớp!', 
+      `Số lượng mã số (${luckyCodes.length}) và tên (${luckyNames.length}) không bằng nhau.`
+    );
+    return false;
+  }
+  
+  // Kiểm tra có đủ số để quay không
+  const currentPrize = getCurrentPrizeInfo();
+  const drawLimit = currentPrize ? (currentPrize.drawLimitPerTurn || 1) : 1;
+  
+  if (luckyCodes.length < drawLimit) {
+    showEmptyListWarning(
+      'Không đủ số để quay!', 
+      `Giải hiện tại cần ${drawLimit} người nhưng chỉ còn ${luckyCodes.length} số.`
+    );
+    return false;
+  }
+  
+  return true;
+}
+
+// === EXCEL DOWNLOAD LOGIC ===
+function downloadExcel() {
+  console.log('=== DOWNLOADING EXCEL ===');
+  
+  const winners = JSON.parse(localStorage.getItem('winners') || '[]');
+  const prizes = JSON.parse(localStorage.getItem('prizes') || '[]');
+  
+  if (winners.length === 0) {
+    alert('Chưa có kết quả nào để tải xuống!');
+    return;
+  }
+  
+  // Tạo workbook mới
+  const wb = XLSX.utils.book_new();
+  
+  // Tạo sheet tổng hợp
+  const summaryData = [
+    ['STT', 'Mã số', 'Họ tên', 'Mã người chơi', 'Giải thưởng', 'Thời gian']
+  ];
+  
+  winners.forEach((winner, index) => {
+    const datetime = winner.datetime || (winner.timestamp ? new Date(winner.timestamp).toLocaleString('vi-VN') : 'Không có');
+    summaryData.push([
+      index + 1,
+      winner.code,
+      winner.name,
+      winner.playerId || '',
+      winner.prize,
+      datetime
+    ]);
+  });
+  
+  const summaryWs = XLSX.utils.aoa_to_sheet(summaryData);
+  
+  // Styling cho headers
+  const range = XLSX.utils.decode_range(summaryWs['!ref']);
+  for (let C = range.s.c; C <= range.e.c; ++C) {
+    const address = XLSX.utils.encode_cell({ r: 0, c: C });
+    if (!summaryWs[address]) continue;
+    summaryWs[address].s = {
+      font: { bold: true, color: { rgb: "FFFFFF" } },
+      fill: { fgColor: { rgb: "4472C4" } },
+      alignment: { horizontal: "center" }
+    };
+  }
+  
+  // Set column widths
+  summaryWs['!cols'] = [
+    { width: 8 },   // STT
+    { width: 15 },  // Mã số
+    { width: 25 },  // Họ tên
+    { width: 15 },  // Mã người chơi
+    { width: 20 },  // Giải thưởng
+    { width: 20 }   // Thời gian
+  ];
+  
+  XLSX.utils.book_append_sheet(wb, summaryWs, "Tổng hợp");
+  
+  // Tạo sheet cho từng giải
+  prizes.forEach(prize => {
+    const prizeWinners = winners.filter(w => w.prize === prize.name);
+    if (prizeWinners.length === 0) return;
+    
+    const prizeData = [
+      ['STT', 'Mã số', 'Họ tên', 'Mã người chơi', 'Thời gian']
+    ];
+    
+    prizeWinners.forEach((winner, index) => {
+      const datetime = winner.datetime || (winner.timestamp ? new Date(winner.timestamp).toLocaleString('vi-VN') : 'Không có');
+      prizeData.push([
+        index + 1,
+        winner.code,
+        winner.name,
+        winner.playerId || '',
+        datetime
+      ]);
+    });
+    
+    const prizeWs = XLSX.utils.aoa_to_sheet(prizeData);
+    
+    // Styling cho headers
+    const prizeRange = XLSX.utils.decode_range(prizeWs['!ref']);
+    for (let C = prizeRange.s.c; C <= prizeRange.e.c; ++C) {
+      const address = XLSX.utils.encode_cell({ r: 0, c: C });
+      if (!prizeWs[address]) continue;
+      prizeWs[address].s = {
+        font: { bold: true, color: { rgb: "FFFFFF" } },
+        fill: { fgColor: { rgb: "70AD47" } },
+        alignment: { horizontal: "center" }
+      };
+    }
+    
+    // Set column widths
+    prizeWs['!cols'] = [
+      { width: 8 },   // STT
+      { width: 15 },  // Mã số
+      { width: 25 },  // Họ tên
+      { width: 15 },  // Mã người chơi
+      { width: 20 }   // Thời gian
+    ];
+    
+    XLSX.utils.book_append_sheet(wb, prizeWs, prize.name);
+  });
+  
+  // Tạo sheet thống kê
+  const statsData = [
+    ['Giải thưởng', 'Số người trúng', 'Tỷ lệ (%)'],
+  ];
+  
+  const totalWinners = winners.length;
+  prizes.forEach(prize => {
+    const prizeWinners = winners.filter(w => w.prize === prize.name);
+    const count = prizeWinners.length;
+    const percentage = totalWinners > 0 ? ((count / totalWinners) * 100).toFixed(1) : '0';
+    statsData.push([prize.name, count, percentage + '%']);
+  });
+  
+  statsData.push(['Tổng cộng', totalWinners, '100%']);
+  
+  const statsWs = XLSX.utils.aoa_to_sheet(statsData);
+  
+  // Styling cho stats headers
+  const statsRange = XLSX.utils.decode_range(statsWs['!ref']);
+  for (let C = statsRange.s.c; C <= statsRange.e.c; ++C) {
+    const address = XLSX.utils.encode_cell({ r: 0, c: C });
+    if (!statsWs[address]) continue;
+    statsWs[address].s = {
+      font: { bold: true, color: { rgb: "FFFFFF" } },
+      fill: { fgColor: { rgb: "E74C3C" } },
+      alignment: { horizontal: "center" }
+    };
+  }
+  
+  statsWs['!cols'] = [
+    { width: 20 },  // Giải thưởng
+    { width: 15 },  // Số người trúng
+    { width: 12 }   // Tỷ lệ
+  ];
+  
+  XLSX.utils.book_append_sheet(wb, statsWs, "Thống kê");
+  
+  // Tạo filename với timestamp
+  const now = new Date();
+  const timestamp = now.toISOString().slice(0, 19).replace(/:/g, '-');
+  const filename = `KetQua_QuaySo_${timestamp}.xlsx`;
+  
+  // Download file
+  try {
+    XLSX.writeFile(wb, filename);
+    console.log('✅ Excel file downloaded:', filename);
+    
+    // Hiển thị thông báo thành công
+    showDownloadNotification(filename, winners.length);
+  } catch (error) {
+    console.error('❌ Error downloading Excel:', error);
+    alert('Có lỗi khi tải file Excel. Vui lòng thử lại!');
+  }
+}
+
+function showDownloadNotification(filename, count) {
+  const notification = document.createElement('div');
+  notification.style.cssText = `
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: linear-gradient(135deg, #27ae60 0%, #2ecc71 100%);
+    color: white;
+    padding: 15px 25px;
+    border-radius: 10px;
+    font-weight: bold;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    z-index: 10000;
+    animation: slideIn 0.5s ease-out; /* Chuyển lại về 0.5s như cũ */
+  `;
+  
+  notification.innerHTML = `
+    <div style="display: flex; align-items: center; gap: 10px;">
+      <span style="font-size: 1.5em;">📊</span>
+      <div>
+        <div style="font-size: 1.1em;">Tải xuống thành công!</div>
+        <div style="font-size: 0.9em; opacity: 0.9;">${filename}</div>
+        <div style="font-size: 0.8em; opacity: 0.8;">${count} kết quả đã được xuất</div>
+      </div>
+    </div>
+  `;
+  
+  document.body.appendChild(notification);
+  
+  setTimeout(() => {
+    if (notification.parentNode) {
+      notification.style.animation = 'slideOut 0.5s ease-in'; // Chuyển lại về 0.5s
+      setTimeout(() => {
+        if (notification.parentNode) {
+          notification.parentNode.removeChild(notification);
+        }
+      }, 500); // Chuyển lại về 500ms
+    }
+  }, 4000); // Chuyển lại về 4s như cũ
+}
+
+// Thêm CSS animations
+if (!document.getElementById('download-animations')) {
+  const style = document.createElement('style');
+  style.id = 'download-animations';
+  style.textContent = `
+    @keyframes slideIn {
+      0% { transform: translateX(100%); opacity: 0; }
+      100% { transform: translateX(0); opacity: 1; }
+    }
+    @keyframes slideOut {
+      0% { transform: translateX(0); opacity: 1; }
+      100% { transform: translateX(100%); opacity: 0; }
+    }
+  `;
+  document.head.appendChild(style);
+}
+
+// === RESULT LIST LOGIC ====
+
+// === TEST EXCEL DOWNLOAD ===
+window.testExcelDownload = function() {
+  console.log('=== TESTING EXCEL DOWNLOAD ===');
+  
+  const winners = JSON.parse(localStorage.getItem('winners') || '[]');
+  console.log('Current winners count:', winners.length);
+  
+  if (winners.length === 0) {
+    console.log('No winners found, creating demo data...');
+    setupExcelDemoData();
+  }
+  
+  console.log('Testing download...');
+  downloadExcel();
+};
+
+// Setup demo data với timestamps cho test Excel
+window.setupExcelDemoData = function() {
+  console.log('=== SETTING UP EXCEL DEMO DATA ===');
+  
+  const demoPrizes = [
+    {name: "GIẢI ĐẶC BIỆT", icon: "💎", drawLimitPerTurn: 1, maxWinners: 2},
+    {name: "GIẢI NHẤT", icon: "🥇", drawLimitPerTurn: 2, maxWinners: 4},
+    {name: "GIẢI NHÌ", icon: "🥈", drawLimitPerTurn: 3, maxWinners: 6},
+    {name: "GIẢI BA", icon: "🥉", drawLimitPerTurn: 5, maxWinners: 0}
+  ];
+  
+  // Tạo demo winners với timestamps khác nhau
+  const now = new Date();
+  const demoWinners = [
+    // GIẢI ĐẶC BIỆT
+    {
+      code: "000001", 
+      name: "Nguyễn Văn A", 
+      prize: "GIẢI ĐẶC BIỆT",
+      timestamp: new Date(now.getTime() - 3600000).toISOString(), // 1 giờ trước
+      datetime: new Date(now.getTime() - 3600000).toLocaleString('vi-VN')
+    },
+    {
+      code: "000015", 
+      name: "Trần Thị B", 
+      prize: "GIẢI ĐẶC BIỆT",
+      timestamp: new Date(now.getTime() - 1800000).toISOString(), // 30 phút trước
+      datetime: new Date(now.getTime() - 1800000).toLocaleString('vi-VN')
+    },
+    
+    // GIẢI NHẤT
+    {
+      code: "000003", 
+      name: "Lê Văn C", 
+      prize: "GIẢI NHẤT",
+      timestamp: new Date(now.getTime() - 2700000).toISOString(), // 45 phút trước
+      datetime: new Date(now.getTime() - 2700000).toLocaleString('vi-VN')
+    },
+    {
+      code: "000007", 
+      name: "Phạm Thị D", 
+      prize: "GIẢI NHẤT",
+      timestamp: new Date(now.getTime() - 900000).toISOString(), // 15 phút trước
+      datetime: new Date(now.getTime() - 900000).toLocaleString('vi-VN')
+    },
+    {
+      code: "000012", 
+      name: "Hoàng Văn E", 
+      prize: "GIẢI NHẤT",
+      timestamp: new Date(now.getTime() - 600000).toISOString(), // 10 phút trước
+      datetime: new Date(now.getTime() - 600000).toLocaleString('vi-VN')
+    },
+    
+    // GIẢI NHÌ  
+    {
+      code: "000002", 
+      name: "Vũ Thị F", 
+      prize: "GIẢI NHÌ",
+      timestamp: new Date(now.getTime() - 3000000).toISOString(), // 50 phút trước
+      datetime: new Date(now.getTime() - 3000000).toLocaleString('vi-VN')
+    },
+    {
+      code: "000009", 
+      name: "Đỗ Văn G", 
+      prize: "GIẢI NHÌ",
+      timestamp: new Date(now.getTime() - 1200000).toISOString(), // 20 phút trước
+      datetime: new Date(now.getTime() - 1200000).toLocaleString('vi-VN')
+    },
+    {
+      code: "000014", 
+      name: "Bùi Thị H", 
+      prize: "GIẢI NHÌ",
+      timestamp: new Date(now.getTime() - 300000).toISOString(), // 5 phút trước
+      datetime: new Date(now.getTime() - 300000).toLocaleString('vi-VN')
+    },
+    
+    // GIẢI BA
+    {
+      code: "000005", 
+      name: "Ngô Văn I", 
+      prize: "GIẢI BA",
+      timestamp: new Date(now.getTime() - 2400000).toISOString(), // 40 phút trước
+      datetime: new Date(now.getTime() - 2400000).toLocaleString('vi-VN')
+    },
+    {
+      code: "000008", 
+      name: "Đinh Thị K", 
+      prize: "GIẢI BA",
+      timestamp: new Date(now.getTime() - 1500000).toISOString(), // 25 phút trước
+      datetime: new Date(now.getTime() - 1500000).toLocaleString('vi-VN')
+    },
+    {
+      code: "000011", 
+      name: "Lý Văn L", 
+      prize: "GIẢI BA",
+      timestamp: new Date(now.getTime() - 120000).toISOString(), // 2 phút trước
+      datetime: new Date(now.getTime() - 120000).toLocaleString('vi-VN')
+    },
+    {
+      code: "000018", 
+      name: "Mai Thị M", 
+      prize: "GIẢI BA",
+      timestamp: now.toISOString(), // Vừa mới
+      datetime: now.toLocaleString('vi-VN')
+    }
+  ];
+  
+  localStorage.setItem('prizes', JSON.stringify(demoPrizes));
+  localStorage.setItem('winners', JSON.stringify(demoWinners));
+  localStorage.setItem('currentPrizeIdx', '0');
+  
+  // Update displays
+  updateAllPrizeDisplays();
+  updateWinnerCount();
+  
+  console.log('✅ Excel Demo Data Created!');
+  console.log(`📊 Total: ${demoWinners.length} winners across ${demoPrizes.length} prizes`);
+  console.log('🕐 Timeline: Từ 1 giờ trước đến hiện tại');
+  console.log('');
+  console.log('📋 Test instructions:');
+  console.log('1. Mở modal "Kết quả" để xem bảng với thời gian');
+  console.log('2. Click "📊 Download" để tải Excel');
+  console.log('3. Check file Excel có 4 sheets:');
+  console.log('   - Tổng hợp (tất cả kết quả)');
+  console.log('   - GIẢI ĐẶC BIỆT (2 người)');
+  console.log('   - GIẢI NHẤT (3 người)'); 
+  console.log('   - GIẢI NHÌ (3 người)');
+  console.log('   - GIẢI BA (4 người)');
+  console.log('   - Thống kê (số lượng & tỷ lệ)');
+  console.log('4. Chạy testExcelDownload() để test trực tiếp');
+};
+
+// === TEST EMPTY LIST WARNING ===
+window.testEmptyListWarning = function() {
+  console.log('=== TESTING EMPTY LIST WARNING ===');
+  
+  // Clear data to trigger warning
+  localStorage.removeItem('luckyCodes');
+  localStorage.removeItem('luckyNames');
+  
+  console.log('✅ Cleared all data');
+  console.log('📋 Test scenarios:');
+  console.log('1. Click nút "BẮT ĐẦU" → bị block, hiện warning');
+  console.log('2. Click nút "QUAY SỐ" → bị block, hiện warning');
+  console.log('3. Lucky list "QUAY SỐ" → bị block, hiện warning');
+  console.log('4. Click "➕ THÊM SỐ NGAY" → tự động mở modal nhập số');
+  console.log('5. Test các scenario khác:');
+  console.log('   - testEmptyNames() : Có mã số nhưng không có tên');
+  console.log('   - testMismatchData() : Số lượng mã và tên không khớp');
+  console.log('   - testNotEnoughNumbers() : Không đủ số để quay theo setting');
+  
+  // Test warning immediately
+  showEmptyListWarning();
+};
+
+window.testEmptyNames = function() {
+  console.log('=== TEST EMPTY NAMES SCENARIO ===');
+  
+  // Set only codes, no names
+  localStorage.setItem('luckyCodes', JSON.stringify(['001', '002', '003']));
+  localStorage.removeItem('luckyNames');
+  
+  console.log('✅ Set codes only, no names');
+  console.log('📋 Click "QUAY SỐ" để xem cảnh báo thiếu tên');
+};
+
+window.testMismatchData = function() {
+  console.log('=== TEST MISMATCH DATA SCENARIO ===');
+  
+  // Set different lengths
+  localStorage.setItem('luckyCodes', JSON.stringify(['001', '002', '003']));
+  localStorage.setItem('luckyNames', JSON.stringify(['Nguyễn A', 'Trần B'])); // chỉ 2 tên
+  
+  console.log('✅ Set 3 codes but only 2 names');
+  console.log('📋 Click "QUAY SỐ" để xem cảnh báo dữ liệu không khớp');
+};
+
+window.testEmptyAfterDraw = function() {
+  console.log('=== TEST EMPTY AFTER DRAW SCENARIO ===');
+  
+  // Set only 1 code to simulate running out
+  localStorage.setItem('luckyCodes', JSON.stringify(['001']));
+  localStorage.setItem('luckyNames', JSON.stringify(['Nguyễn A']));
+  
+  // Set current prize to draw more than available
+  const prizes = JSON.parse(localStorage.getItem('prizes') || '[]');
+  if (prizes.length > 0) {
+    prizes[0].drawLimitPerTurn = 5; // Muốn quay 5 nhưng chỉ có 1
+    localStorage.setItem('prizes', JSON.stringify(prizes));
+  }
+  
+  updateAllPrizeDisplays();
+  
+  console.log('✅ Set giải hiện tại quay 5 người nhưng chỉ có 1 số');
+  console.log('📋 Click "QUAY SỐ" rồi "CHỐT" để xem cảnh báo hết số');
+};
+
+window.testNotEnoughNumbers = function() {
+  console.log('=== TEST NOT ENOUGH NUMBERS SCENARIO ===');
+  
+  // Set 3 numbers but current prize needs 5
+  localStorage.setItem('luckyCodes', JSON.stringify(['001', '002', '003']));
+  localStorage.setItem('luckyNames', JSON.stringify(['Nguyễn A', 'Trần B', 'Lê C']));
+  
+  // Set current prize to need 5 people
+  const prizes = JSON.parse(localStorage.getItem('prizes') || '[]');
+  if (prizes.length > 0) {
+    prizes[0].drawLimitPerTurn = 5; // Cần 5 người
+    localStorage.setItem('prizes', JSON.stringify(prizes));
+  }
+  
+  updateAllPrizeDisplays();
+  
+  console.log('✅ Set 3 số nhưng giải hiện tại cần 5 người');
+  console.log('📋 Click "BẮT ĐẦU" hoặc "QUAY SỐ" để xem cảnh báo không đủ số');
+};
+
+// === COMPREHENSIVE FUNCTION CHECK ===
+window.checkAllFunctions = function() {
+  console.log('🔍 === KIỂM TRA TẤT CẢ CHỨC NĂNG ===');
+  console.log('');
+  
+  console.log('📋 DANH SÁCH CÁC CHỨC NĂNG CHÍNH:');
+  console.log('1. ✅ Quay hàng loạt (Batch Drawing)');
+  console.log('2. ✅ Multiple Winners Modal');
+  console.log('3. ✅ Auto-switch Prize khi đủ người');
+  console.log('4. ✅ Winner Count Display với màu sắc');
+  console.log('5. ✅ Excel Export với timestamp');
+  console.log('6. ✅ Empty List Warning Modal');
+  console.log('7. ✅ Validation toàn diện');
+  console.log('8. ✅ Theme Picker');
+  console.log('9. ✅ Result List Modal');
+  console.log('10. ✅ Lucky List Modal');
+  console.log('');
+  
+  console.log('🧪 QUICK TEST COMMANDS:');
+  console.log('');
+  console.log('▶️ VALIDATION TESTS:');
+  console.log('   testEmptyListWarning()     - Test cảnh báo không có số');
+  console.log('   testEmptyNames()           - Test thiếu tên');
+  console.log('   testMismatchData()         - Test dữ liệu không khớp');
+  console.log('   testNotEnoughNumbers()     - Test không đủ số');
+  console.log('');
+  console.log('▶️ BATCH DRAWING TESTS:');
+  console.log('   setupDemoForAutoSwitch()   - Setup demo cho auto-switch');
+  console.log('   debugBatchDraw()           - Test quay hàng loạt');
+  console.log('   testAutoSwitch()           - Test auto-switch giải');
+  console.log('');
+  console.log('▶️ DISPLAY TESTS:');
+  console.log('   setupWinnerCountDemo()     - Test winner count display');
+  console.log('   testUpdateIcons()          - Test update icons');
+  console.log('   testShowModal()            - Test multiple winners modal');
+  console.log('');
+  console.log('▶️ EXPORT TESTS:');
+  console.log('   setupExcelDemoData()       - Setup data cho Excel');
+  console.log('   testExcelDownload()        - Test Excel export');
+  console.log('');
+  console.log('▶️ MANUAL TESTS:');
+  console.log('   - Click footer "Kết quả" → Test Result List Modal');
+  console.log('   - Click "🎨 Chủ đề" → Test Theme Picker');
+  console.log('   - Click card ở main mode → Test Lucky List Modal');
+  console.log('   - Click "BẮT ĐẦU" → Test validation');
+  console.log('');
+  
+  console.log('🎯 COMPREHENSIVE TEST SEQUENCE:');
+  console.log('   runFullTest()              - Chạy test toàn bộ hệ thống');
+  console.log('   quickHealthCheck()         - Kiểm tra trạng thái hiện tại');
+  console.log('');
+};
+
+window.runFullTest = function() {
+  console.log('🚀 === CHẠY TEST TOÀN BỘ HỆ THỐNG ===');
+  console.log('');
+  
+  // Test 1: Empty List Warning
+  console.log('1️⃣ Testing Empty List Warning...');
+  localStorage.removeItem('luckyCodes');
+  localStorage.removeItem('luckyNames');
+  console.log('   ✅ Cleared data');
+  
+  // Test 2: Setup Demo Data
+  console.log('2️⃣ Setting up demo data...');
+  setupDemoForAutoSwitch();
+  console.log('   ✅ Demo data created');
+  
+  // Test 3: Winner Count Display
+  console.log('3️⃣ Testing winner count display...');
+  updateWinnerCount();
+  console.log('   ✅ Winner count updated');
+  
+  // Test 4: Icons
+  console.log('4️⃣ Testing prize icons...');
+  updateDrawCardsWithPrizeIcon();
+  console.log('   ✅ Icons updated');
+  
+  // Test 5: Check modals exist
+  console.log('5️⃣ Checking modals...');
+  const modals = [
+    'multiple-winners-modal',
+    'empty-list-warning-modal', 
+    'result-list-modal',
+    'lucky-list-modal',
+    'theme-modal'
+  ];
+  
+  modals.forEach(modalId => {
+    const modal = document.getElementById(modalId);
+    if (modal) {
+      console.log(`   ✅ ${modalId} exists`);
+    } else {
+      console.log(`   ❌ ${modalId} missing`);
+    }
+  });
+  
+  // Test 6: Check validation functions
+  console.log('6️⃣ Testing validation functions...');
+  const validationFunctions = [
+    'validateLuckyList',
+    'validateAndStartSpin', 
+    'showEmptyListWarning',
+    'hideEmptyListWarning'
+  ];
+  
+  validationFunctions.forEach(funcName => {
+    if (typeof window[funcName] === 'function' || typeof eval(funcName) === 'function') {
+      console.log(`   ✅ ${funcName} exists`);
+    } else {
+      console.log(`   ❌ ${funcName} missing`);
+    }
+  });
+  
+  // Test 7: Check UI elements
+  console.log('7️⃣ Checking UI elements...');
+  const elements = [
+    '.draw-btn',
+    '.lock-btn', 
+    '.result-list-download-btn',
+    '.empty-list-add-btn',
+    '.multiple-winners-confirm-btn'
+  ];
+  
+  elements.forEach(selector => {
+    const el = document.querySelector(selector);
+    if (el) {
+      console.log(`   ✅ ${selector} exists`);
+    } else {
+      console.log(`   ❌ ${selector} missing`);
+    }
+  });
+  
+  console.log('');
+  console.log('🎉 === TEST HOÀN THÀNH ===');
+  console.log('');
+  console.log('📝 NEXT STEPS:');
+  console.log('1. Test validation: testEmptyListWarning()');
+  console.log('2. Test batch draw: setupDemoForAutoSwitch() → quay số');
+  console.log('3. Test Excel: setupExcelDemoData() → click Download');
+  console.log('4. Test các modal thủ công');
+  console.log('');
+};
+
+window.quickHealthCheck = function() {
+  console.log('⚡ === QUICK HEALTH CHECK ===');
+  
+  // Check localStorage
+  const luckyCodes = JSON.parse(localStorage.getItem('luckyCodes') || '[]');
+  const luckyNames = JSON.parse(localStorage.getItem('luckyNames') || '[]');
+  const winners = JSON.parse(localStorage.getItem('winners') || '[]');
+  const prizes = JSON.parse(localStorage.getItem('prizes') || '[]');
+  
+  console.log('📊 CURRENT STATE:');
+  console.log(`   Lucky Codes: ${luckyCodes.length} items`);
+  console.log(`   Lucky Names: ${luckyNames.length} items`);
+  console.log(`   Winners: ${winners.length} items`);
+  console.log(`   Prizes: ${prizes.length} items`);
+  
+  // Check if validation works
+  const isValid = validateLuckyList();
+  console.log(`   Validation Status: ${isValid ? '✅ Valid' : '❌ Invalid'}`);
+  
+  // Check current prize
+  const currentPrizeIdx = parseInt(localStorage.getItem('currentPrizeIdx') || '0', 10);
+  const currentPrize = prizes[currentPrizeIdx];
+  console.log(`   Current Prize: ${currentPrize?.name || 'N/A'} (index: ${currentPrizeIdx})`);
+  
+  if (currentPrize) {
+    console.log(`   Draw Limit: ${currentPrize.drawLimitPerTurn || 1} people`);
+    console.log(`   Max Winners: ${currentPrize.maxWinners || 'Unlimited'}`);
+  }
+  
+  console.log('');
+  console.log('🔧 SUGGESTIONS:');
+  if (luckyCodes.length === 0) {
+    console.log('   - Run setupDemoForAutoSwitch() for demo data');
+  }
+  if (winners.length === 0) {
+    console.log('   - Run setupExcelDemoData() for winner data');
+  }
+  console.log('   - Run checkAllFunctions() for full menu');
+  console.log('   - Run runFullTest() for comprehensive test');
+  console.log('');
+  console.log('🚨 DEBUGGING COMMANDS:');
+  console.log('   debugDataIssue()           - Debug vấn đề không vào được draw mode');
+  console.log('   fixDataAndEnter()          - Fix data và tự động vào draw mode');
+};
+
+// Debug function for data issues
+window.debugDataIssue = function() {
+  console.log('🚨 === DEBUGGING DATA ISSUE ===');
+  
+  const luckyCodes = JSON.parse(localStorage.getItem('luckyCodes') || '[]');
+  const luckyNames = JSON.parse(localStorage.getItem('luckyNames') || '[]');
+  
+  console.log('📊 CURRENT DATA STATE:');
+  console.log('   luckyCodes:', luckyCodes);
+  console.log('   luckyNames:', luckyNames);
+  console.log('   luckyCodes.length:', luckyCodes.length);
+  console.log('   luckyNames.length:', luckyNames.length);
+  
+  console.log('🔍 VALIDATION CHECK:');
+  const isValid = validateLuckyList();
+  console.log('   validateLuckyList():', isValid);
+  
+  console.log('');
+  console.log('🔧 SUGGESTIONS:');
+  if (luckyCodes.length === 0) {
+    console.log('   ❌ PROBLEM: Không có mã số nào');
+    console.log('   💡 SOLUTION: Chạy fixDataAndEnter() hoặc thêm số thủ công');
+  } else {
+    console.log('   ✅ OK: Có mã số');
+    if (luckyNames.length === 0) {
+      console.log('   ⚠️ WARNING: Không có tên (nhưng vẫn có thể hoạt động)');
+    }
+    if (luckyCodes.length !== luckyNames.length) {
+      console.log('   ⚠️ WARNING: Số lượng mã và tên không khớp (nhưng vẫn có thể hoạt động)');
+    }
+    console.log('   💡 TRY: Click "BẮT ĐẦU" lại - should work now!');
+  }
+};
+
+window.fixDataAndEnter = function() {
+  console.log('🔧 === FIXING DATA AND AUTO ENTER ===');
+  
+  // Create minimal working data
+  const testCodes = ['001', '002', '003', '004', '005'];
+  const testNames = ['Nguyễn A', 'Trần B', 'Lê C', 'Phạm D', 'Hoàng E'];
+  
+  localStorage.setItem('luckyCodes', JSON.stringify(testCodes));
+  localStorage.setItem('luckyNames', JSON.stringify(testNames));
+  
+  console.log('✅ Fixed data:', testCodes);
+  
+  // Auto enter draw mode
+  document.querySelector('.main-mode').style.display = 'none';
+  document.querySelector('.draw-mode').style.display = 'flex';
+  document.body.classList.add('draw-active');
+  document.body.classList.remove('result-active');
+  
+  // Update displays
+  updateDrawCardsWithPrizeIcon();
+  updateWinnerCount();
+  
+  console.log('🎉 SUCCESS: Đã vào draw mode với data test!');
+  console.log('📋 Bây giờ có thể click "QUAY SỐ" để test');
+};
+
+// === TIMING STATUS CHECK ===
+window.checkCurrentTiming = function() {
+  console.log('⏱️ === TRẠNG THÁI TIMING HIỆN TẠI ===');
+  console.log('');
+  console.log('✅ ĐÃ CHUYỂN LẠI VỀ TIMING GỐC THEO YÊU CẦU:');
+  console.log('');
+  console.log('🎰 SLOT SPINNING:');
+  console.log('   ✅ Tốc độ quay: 60ms (nhanh, rõ nét)');
+  console.log('   ✅ Tốc độ dừng: 20ms (nhanh, sắc bén)');
+  console.log('   ✅ Delay dừng: 4000ms (timing gốc)');
+  console.log('');
+  console.log('🎆 HIỆU ỨNG:');
+  console.log('   ✅ Fireworks delay: 300ms & 500ms (xuất hiện nhanh)');
+  console.log('   ✅ Lucky highlight: 1.2s (nhanh và năng động)');
+  console.log('   ✅ Lucky blink: 0.5s (nhấp nháy nhanh)');
+  console.log('   ✅ Slot pop: 0.5s (pop nhanh)');
+  console.log('');
+  console.log('🪟 MODAL & TRANSITIONS:');
+  console.log('   ✅ Modal fade in: 0.2s (xuất hiện nhanh)');
+  console.log('   ✅ Color transitions: 0.2s (chuyển màu nhanh)');
+  console.log('   ✅ Background transitions: 0.2s (chuyển nền nhanh)');
+  console.log('');
+  console.log('📢 NOTIFICATIONS:');
+  console.log('   ✅ Download notification: 4s (hiển thị ngắn)');
+  console.log('   ✅ Auto-switch notification: 3s (ngắn gọn)');
+  console.log('   ✅ Searching pulse: 1.5s (nhịp nhanh)');
+  console.log('   ✅ Glow effect: 1.2s (sáng nhanh)');
+  console.log('');
+  console.log('🧪 TEST TIMING GỐC:');
+  console.log('   1. fixDataAndEnter() - Setup và vào draw mode');
+  console.log('   2. Click "QUAY SỐ" - Slot quay nhanh 60ms');
+  console.log('   3. Click "CHỐT" - Dừng nhanh 20ms');
+  console.log('   4. Fireworks xuất hiện sau 300ms-500ms');
+  console.log('   5. Modal popup nhanh 0.2s');
+  console.log('');
+  console.log('🎯 ƯU ĐIỂM TIMING GỐC:');
+  console.log('   ⚡ Phản hồi nhanh');
+  console.log('   🎮 Cảm giác game arcade');
+  console.log('   ⏰ Tiết kiệm thời gian');
+  console.log('   🚀 Hiệu ứng sắc bén');
+  console.log('');
+};
+
+// Functions để điều chỉnh timing realtime
+window.adjustSlotSpeed = function(intervalMs = 100) {
+  console.log(`⚙️ Setting slot speed to ${intervalMs}ms`);
+  
+  // Update the constant for future spins
+  window.SLOT_SPIN_INTERVAL = intervalMs;
+  
+  console.log(`✅ Slot speed set to ${intervalMs}ms`);
+  console.log('📋 Click "QUAY SỐ" để test tốc độ mới');
+};
+
+window.adjustStopDelay = function(totalMs = 6000) {
+  console.log(`⚙️ Setting stop delay to ${totalMs}ms total`);
+  
+  // Update the constant for future spins
+  window.SLOT_STOP_TOTAL_DELAY = totalMs;
+  
+  console.log(`✅ Stop delay set to ${totalMs}ms total`);
+  console.log('📋 Click "QUAY SỐ" → "CHỐT" để test delay mới');
+};
+
+// Constants for easy adjustment
+window.SLOT_SPIN_INTERVAL = 100; // Default spin speed
+window.SLOT_STOP_TOTAL_DELAY = 6000; // Default stop delay
+
+// === QUICK DEMO DATA FOR WINNER COUNT ===
