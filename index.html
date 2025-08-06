@@ -8,12 +8,14 @@
 <body>
   <header>
     <div class="main-header">
-      <span class="dot"></span>
       <h1 class="main-title">
         <span class="main-title-text">VÒNG QUAY MAY MẮN CÙNG 5DÊ FIPO</span>
-        <span class="icon-edit" id="edit-title-btn" style="cursor:pointer; font-size:1.2rem; vertical-align:middle;">✎</span>
+        <div class="title-controls">
+          <span class="dot"></span>
+          <span class="icon-edit" id="edit-title-btn" style="cursor:pointer; font-size:1.2rem; vertical-align:middle;">✎</span>
+          <input type="color" id="titleColorPicker" style="display:none; margin-left:12px; vertical-align:middle;" />
+        </div>
       </h1>
-      <input type="color" id="titleColorPicker" style="display:none; margin-left:12px; vertical-align:middle;" />
     </div>
   </header>
   <main>
@@ -38,17 +40,17 @@
       </div>
     </div>
     <div class="draw-mode" style="display:none;">
-      <div class="draw-badge-glow"><span>3</span></div>
+      <div class="draw-badge-glow"><span>💎</span></div>
       <div class="draw-label">Nhấn nút Quay số để bắt đầu</div>
       <div class="draw-searching" style="display:none; text-align:center; margin:12px 0; font-size:1.2em; color:#ffd600; font-weight:bold; text-shadow:0 2px 8px #000a;">🔍 Đang tìm người may mắn...</div>
-      <div class="draw-cards">
-        <div class="draw-card"><span>3</span></div>
-        <div class="draw-card"><span>3</span></div>
-        <div class="draw-card"><span>3</span></div>
-        <div class="draw-card"><span>3</span></div>
-        <div class="draw-card"><span>3</span></div>
-        <div class="draw-card"><span>3</span></div>
-      </div>
+              <div class="draw-cards">
+          <div class="draw-card"><span style="font-size:2.5em;">💎</span></div>
+          <div class="draw-card"><span style="font-size:2.5em;">💎</span></div>
+          <div class="draw-card"><span style="font-size:2.5em;">💎</span></div>
+          <div class="draw-card"><span style="font-size:2.5em;">💎</span></div>
+          <div class="draw-card"><span style="font-size:2.5em;">💎</span></div>
+          <div class="draw-card"><span style="font-size:2.5em;">💎</span></div>
+        </div>
       <div class="prize-select">
         <button class="arrow left">&#60;</button>
         <span class="prize-label">GIẢI BA</span>
@@ -62,7 +64,7 @@
     <div class="result-mode" style="display:none; flex-direction:column; align-items:center; margin-top:48px;">
       <h1 class="main-title" id="result-event-title" style="color:#ffd600;font-size:2.5rem;font-weight:bold;letter-spacing:2px;text-shadow:2px 4px 8px #222,0 2px 0 #fff3;margin-bottom:12px;text-align:center;">LUCKY DRAW SOFTWARE</h1>
       <div class="draw-badge-glow" style="margin-bottom:12px;"><span id="result-badge">💎</span></div>
-      <div id="result-winner-name" style="font-size:2.1rem;font-weight:bold;color:#ffd600;text-shadow:0 2px 8px #000a;margin-bottom:18px;text-align:center;"></div>
+      <div id="result-winner-name" style="font-size:3.5rem;font-weight:bold;color:#ffd600;text-shadow:0 0 20px #ffd600;margin-bottom:24px;text-align:center;letter-spacing:2px;background:linear-gradient(45deg,#ffd600,#ffed4e);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;padding:8px 16px;border-radius:12px;border:3px solid #ffd600;box-shadow:0 8px 24px #ffd60055,inset 0 2px 8px #fff3;"></div>
       <div class="draw-cards result-cards" style="margin-bottom:24px;"></div>
       <div class="result-prize-label-wrap" style="margin-bottom:18px;text-align:center;">
         <span class="prize-label" id="result-prize-label" style="color:#ffd600;font-size:1.3rem;font-weight:bold;letter-spacing:1px;text-shadow:0 2px 8px #000a;">GIẢI BA</span>
@@ -89,6 +91,11 @@
         <span class="icon" id="bg-image-btn">🖼️</span>
         <span class="icon">🎵</span>
       </div>
+    </div>
+    <div class="creator-info" style="text-align:left; padding:8px 16px; font-size:0.9rem; color:#ffd600; font-weight:500; letter-spacing:0.5px; text-shadow:0 1px 3px rgba(0,0,0,0.3);">
+      <span style="opacity:0.8;">Created by</span> 
+      <span style="font-weight:bold; color:#ffd600; text-shadow:0 0 8px rgba(255,214,0,0.5);">TuanPhan_Fizo</span>
+      <span style="opacity:0.6; margin-left:8px;">✨</span>
     </div>
   </footer>
   <div id="bg-modal" class="bg-modal hidden">
@@ -148,12 +155,26 @@
           <input type="number" id="auto-to" min="1" value="20" style="width: 60px;">
           <button type="button" id="auto-generate-btn" class="auto-generate-btn">TẠO SỐ</button>
         </div>
-        <div style="display: flex; gap: 10px;">
-          <textarea id="lucky-code-list" placeholder="BƯỚC 1: Copy danh sách Mã số quay thưởng vào đây" rows="5" style="flex:1;resize:vertical;"></textarea>
-          <textarea id="lucky-name-list" placeholder="BƯỚC 2: Copy danh sách Họ tên vào đây" rows="5" style="flex:1;resize:vertical;"></textarea>
+        <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+          <div style="flex:1;">
+            <label style="display:block; margin-bottom: 5px; font-weight: bold; color: #333;">BƯỚC 1: Mã số quay thưởng</label>
+            <textarea id="lucky-code-list" placeholder="Copy danh sách Mã số quay thưởng vào đây" rows="5" style="width:100%;resize:vertical;"></textarea>
+          </div>
+          <div style="flex:1;">
+            <label style="display:block; margin-bottom: 5px; font-weight: bold; color: #333;">BƯỚC 2: Họ tên</label>
+            <textarea id="lucky-name-list" placeholder="Copy danh sách Họ tên vào đây" rows="5" style="width:100%;resize:vertical;"></textarea>
+          </div>
+          <div style="flex:1;">
+            <label style="display:block; margin-bottom: 5px; font-weight: bold; color: #333;">BƯỚC 3: Mã người chơi (tùy chọn)</label>
+            <textarea id="lucky-player-list" placeholder="Copy danh sách Mã người chơi vào đây&#10;Ví dụ: P001, P001, P002, P003&#10;Nếu để trống sẽ tự động tạo" rows="5" style="width:100%;resize:vertical;"></textarea>
+          </div>
         </div>
         <div style="margin-top: 8px; font-size: 0.95em; color: #333;">
-          Số lượng: <span id="lucky-code-count">0</span> Mã số, <span id="lucky-name-count">0</span> Họ tên
+          Số lượng: <span id="lucky-code-count">0</span> Mã số, <span id="lucky-name-count">0</span> Họ tên, <span id="lucky-player-count">0</span> Người chơi
+        </div>
+        <div style="margin-top: 8px; font-size: 0.9em; color: #666; background: #f5f5f5; padding: 8px; border-radius: 4px;">
+          <strong>💡 Hướng dẫn:</strong> Mã người chơi giúp xác định nhiều mã thuộc về 1 người. 
+          Khi 1 mã được quay trúng, tất cả mã khác của người đó sẽ bị loại khỏi danh sách quay tiếp.
         </div>
       </div>
       <div class="lucky-list-modal-footer">
@@ -178,15 +199,68 @@
     </div>
   </div>
   <canvas id="confetti-canvas" style="position:fixed;top:0;left:0;width:100vw;height:100vh;pointer-events:none;z-index:999;display:none;"></canvas>
-  <audio id="bg-music" src="bg-music.mp3" loop preload="auto" style="display:none"></audio>
-  <audio id="spin-start" src="spin-start.mp3" preload="auto" style="display:none"></audio>
-  <audio id="rolling" src="rolling.mp3" preload="auto" style="display:none"></audio>
-  <audio id="slot-stop" src="slot-stop.mp3" preload="auto" style="display:none"></audio>
-  <audio id="result-fanfare" src="result-fanfare.mp3" preload="auto" style="display:none"></audio>
-  <audio id="save" src="save.mp3" preload="auto" style="display:none"></audio>
-  <audio id="back" src="back.mp3" preload="auto" style="display:none"></audio>
-  <audio id="spin-music" src="spin-music.mp3" preload="auto" style="display:none"></audio>
-  <audio id="result-music" src="result-music.mp3" preload="auto" style="display:none"></audio>
+  
+  <!-- Empty List Warning Modal -->
+  <div id="empty-list-warning-modal" class="empty-list-warning-modal hidden">
+    <div class="empty-list-warning-content">
+      <div class="empty-list-warning-header">
+        <span class="empty-list-warning-icon">⚠️</span>
+        <span class="empty-list-warning-title">Không có số nào để quay!</span>
+        <span class="empty-list-warning-close">&times;</span>
+      </div>
+      <div class="empty-list-warning-body">
+        <div class="empty-list-warning-message">
+          <p><strong>Danh sách số may mắn hiện đang trống.</strong></p>
+          <p>Để bắt đầu quay số, bạn cần thêm danh sách mã số trước:</p>
+        </div>
+        <div class="empty-list-warning-steps">
+          <div class="warning-step">
+            <span class="step-number">1</span>
+            <span class="step-text">Click vào <strong>"Thêm số"</strong> ở menu dưới</span>
+          </div>
+          <div class="warning-step">
+            <span class="step-number">2</span>
+            <span class="step-text">Nhập danh sách mã số và tên tương ứng</span>
+          </div>
+          <div class="warning-step">
+            <span class="step-number">3</span>
+            <span class="step-text">Click <strong>"QUAY SỐ"</strong> để bắt đầu</span>
+          </div>
+        </div>
+      </div>
+      <div class="empty-list-warning-footer">
+        <button class="empty-list-add-btn">➕ THÊM SỐ NGAY</button>
+        <button class="empty-list-close-btn">ĐÓNG</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Multiple Winners Modal -->
+  <div id="multiple-winners-modal" class="multiple-winners-modal hidden">
+    <div class="multiple-winners-modal-content">
+      <div class="multiple-winners-modal-header">
+        <span id="multiple-winners-prize-title" style="font-size:2rem;font-weight:bold;color:#ffd600;text-shadow:0 2px 8px #000a;">🎉 GIẢI BA - 5 NGƯỜI TRÚNG 🎉</span>
+        <span class="multiple-winners-modal-close" style="font-size:2rem;color:#fff;cursor:pointer;padding:8px;">&times;</span>
+      </div>
+      <div class="multiple-winners-modal-body" style="max-height:600px;overflow-y:auto;padding:15px;">
+        <div class="multiple-winners-list" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(500px,1fr));gap:20px;"></div>
+      </div>
+      <div class="multiple-winners-modal-footer" style="padding:20px;border-top:2px solid #ffd600;">
+        <button class="multiple-winners-confirm-btn" style="background:#ffd600;color:#22223a;font-weight:bold;padding:16px 32px;border:none;border-radius:10px;font-size:1.2rem;margin-right:15px;box-shadow:0 4px 12px #ffd60055;">XÁC NHẬN TẤT CẢ</button>
+        <button class="multiple-winners-back-btn" style="background:#5a4ca7;color:#fff;font-weight:bold;padding:16px 32px;border:none;border-radius:10px;font-size:1.2rem;box-shadow:0 4px 12px #5a4ca755;">QUAY LẠI</button>
+      </div>
+    </div>
+  </div>
+  
+  <audio id="bg-music" src="sound/bg-music.mp3" loop preload="auto" style="display:none"></audio>
+  <audio id="spin-start" src="sound/spin-start.mp3" preload="auto" style="display:none"></audio>
+  <audio id="rolling" src="sound/rolling.mp3" preload="auto" style="display:none"></audio>
+  <audio id="slot-stop" src="sound/slot-stop.mp3" preload="auto" style="display:none"></audio>
+  <audio id="result-fanfare" src="sound/result-fanfare.mp3" preload="auto" style="display:none"></audio>
+  <audio id="save" src="sound/save.mp3" preload="auto" style="display:none"></audio>
+  <audio id="back" src="sound/back.mp3" preload="auto" style="display:none"></audio>
+  <audio id="spin-music" src="sound/spin-music.mp3" preload="auto" style="display:none"></audio>
+  <audio id="result-music" src="sound/result-music.mp3" preload="auto" style="display:none"></audio>
   <!-- Theme Picker Modal -->
   <div id="theme-modal" class="theme-modal hidden">
     <div class="theme-modal-content">
@@ -213,6 +287,8 @@
   </div>
   <!-- Nút mở modal theme -->
   <button id="theme-btn" style="position:fixed;top:18px;right:24px;z-index:2000;background:#ffd600;color:#22223a;font-weight:bold;padding:8px 18px;border:none;border-radius:8px;box-shadow:0 2px 12px #ffd60055;cursor:pointer;">🎨 Chủ đề</button>
+  <!-- SheetJS for Excel export -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <script src="script.js"></script>
 </body>
 </html> 
