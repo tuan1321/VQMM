@@ -168,7 +168,7 @@ header {
   font-size: 1.2rem;
   cursor: pointer;
   font-weight: bold;
-  transition: background 0.2s, color 0.2s;
+  transition: background 0.2s, color 0.2s; /* Chuyển lại về 0.2s như cũ */
   display: flex;
   align-items: center;
   justify-content: center;
@@ -191,7 +191,7 @@ header {
   font-weight: bold;
   box-shadow: 0 2px 12px #ffd60055;
   cursor: pointer;
-  transition: background 0.2s, color 0.2s;
+  transition: background 0.2s, color 0.2s; /* Chuyển lại về 0.2s như cũ */
 }
 .show-btn:hover {
   background: #fff;
@@ -214,7 +214,7 @@ footer {
 }
 .menu-bar span {
   cursor: pointer;
-  transition: color 0.2s;
+  transition: color 0.2s; /* Chuyển lại về 0.2s như cũ */
 }
 .menu-bar span:hover {
   color: #ffd600;
@@ -228,7 +228,7 @@ footer {
 }
 .icon {
   cursor: pointer;
-  transition: color 0.2s;
+  transition: color 0.2s; /* Chuyển lại về 0.2s như cũ */
 }
 .icon:hover {
   color: #ffd600;
@@ -317,7 +317,7 @@ footer {
   font-size: 1.3rem;
   font-weight: bold;
   margin-left: 16px;
-  transition: color 0.2s;
+  transition: color 0.2s; /* Chuyển lại về 0.2s như cũ */
 }
 .bg-modal-close:hover {
   color: #c62828;
@@ -336,7 +336,7 @@ footer {
   font-size: 1rem;
   cursor: pointer;
   border: 2px dashed #ffd600;
-  transition: background 0.2s, color 0.2s;
+  transition: background 0.2s, color 0.2s; /* Chuyển lại về 0.2s như cũ */
   margin-top: 8px;
 }
 .bg-upload-label:hover {
@@ -356,7 +356,7 @@ footer {
   font-size: 1rem;
   font-weight: 500;
   cursor: pointer;
-  transition: background 0.2s, color 0.2s;
+  transition: background 0.2s, color 0.2s; /* Chuyển lại về 0.2s như cũ */
 }
 .bg-default-btn {
   background: #ffd600;
@@ -403,7 +403,7 @@ footer {
   line-height: 56px;
   position: relative;
   z-index: 2;
-  animation: glow 1.2s infinite alternate;
+  animation: glow 1.2s infinite alternate; /* Chuyển lại về 1.2s như cũ */
   border: 2px solid #ffd600;
 }
 .draw-label {
@@ -416,7 +416,7 @@ footer {
 }
 
 .draw-searching {
-  animation: searchingPulse 1.5s ease-in-out infinite;
+  animation: searchingPulse 1.5s ease-in-out infinite; /* Chuyển lại về 1.5s như cũ */
 }
 
 @keyframes searchingPulse {
@@ -528,7 +528,7 @@ footer {
   font-weight: bold;
   box-shadow: 0 2px 12px #ffd60055;
   cursor: pointer;
-  transition: background 0.2s, color 0.2s;
+  transition: background 0.2s, color 0.2s; /* Chuyển lại về 0.2s như cũ */
   margin-bottom: 12px;
   letter-spacing: 1px;
 }
@@ -591,7 +591,7 @@ footer {
   font-weight: bold;
   cursor: pointer;
   margin-bottom: 12px;
-  transition: background 0.2s, color 0.2s;
+  transition: background 0.2s, color 0.2s; /* Chuyển lại về 0.2s như cũ */
   box-shadow: 0 2px 12px #ffd60033;
 }
 .end-btn:hover {
@@ -679,7 +679,7 @@ footer {
   max-width: 95vw;
   padding: 0;
   overflow: hidden;
-  animation: fadeIn 0.2s;
+  animation: fadeIn 0.2s; /* Chuyển lại về 0.2s như cũ */
 }
 .prize-modal-header {
   background: #ffe066;
@@ -776,7 +776,7 @@ footer {
   max-width: 98vw;
   padding: 0;
   overflow: hidden;
-  animation: fadeIn 0.2s;
+  animation: fadeIn 0.2s; /* Chuyển lại về 0.2s như cũ */
 }
 .lucky-list-modal-header {
   background: #ffd600;
@@ -827,7 +827,7 @@ footer {
   font-weight: bold;
   cursor: pointer;
   font-size: 1em;
-  transition: background 0.2s, color 0.2s;
+  transition: background 0.2s, color 0.2s; /* Chuyển lại về 0.2s như cũ */
 }
 .lucky-list-cancel-btn { background: #e0e0e0; color: #222; }
 .lucky-list-save-btn { background: #ffd600; color: #22223a; }
@@ -842,7 +842,7 @@ footer {
   font-weight: bold;
   cursor: pointer;
   margin-left: 4px;
-  transition: background 0.2s, color 0.2s;
+  transition: background 0.2s, color 0.2s; /* Chuyển lại về 0.2s như cũ */
 }
 .auto-generate-btn:hover {
   background: #fff;
@@ -884,7 +884,7 @@ footer {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  animation: fadeIn 0.2s;
+  animation: fadeIn 0.2s; /* Chuyển lại về 0.2s như cũ */
 }
 .result-list-modal-header {
   background: #ffd600;
@@ -903,7 +903,7 @@ footer {
   color: #d7263d;
   font-weight: bold;
   margin-left: 16px;
-  transition: color 0.2s;
+  transition: color 0.2s; /* Chuyển lại về 0.2s như cũ */
 }
 .result-list-modal-close:hover {
   color: #c62828;
@@ -946,6 +946,12 @@ footer {
   padding: 10px 8px;
   text-align: center;
 }
+
+.result-list-table th:nth-child(4), 
+.result-list-table td:nth-child(4) {
+  font-size: 0.9em;
+  width: 140px;
+}
 .result-list-table th {
   font-weight: bold;
   background: #fffbea;
@@ -973,7 +979,7 @@ footer {
   padding: 10px 32px;
   cursor: pointer;
   box-shadow: 0 2px 12px #ffd60055;
-  transition: background 0.2s, color 0.2s;
+  transition: background 0.2s, color 0.2s; /* Chuyển lại về 0.2s như cũ */
 }
 .result-list-download-btn:hover {
   background: #fff;
@@ -991,7 +997,218 @@ footer {
     padding: 8px 8px;
     font-size: 0.95em;
   }
-} 
+}
+
+/* === EMPTY LIST WARNING MODAL === */
+.empty-list-warning-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(8px);
+  z-index: 10000;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  animation: fadeIn 0.3s ease-out;
+}
+
+.empty-list-warning-modal.hidden {
+  display: none;
+}
+
+.empty-list-warning-content {
+  background: linear-gradient(135deg, #fff 0%, #f8f9fa 100%);
+  border-radius: 20px;
+  max-width: 480px;
+  width: 90vw;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+  border: 3px solid #ff6b6b;
+  animation: slideUp 0.4s ease-out;
+}
+
+.empty-list-warning-header {
+  background: linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%);
+  color: white;
+  padding: 20px 25px;
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  position: relative;
+}
+
+.empty-list-warning-icon {
+  font-size: 2rem;
+  animation: bounce 2s infinite;
+}
+
+.empty-list-warning-title {
+  flex: 1;
+  font-size: 1.3rem;
+  font-weight: bold;
+}
+
+.empty-list-warning-close {
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 5px;
+  border-radius: 50%;
+  transition: background 0.2s;
+}
+
+.empty-list-warning-close:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.empty-list-warning-body {
+  padding: 25px;
+}
+
+.empty-list-warning-message {
+  margin-bottom: 20px;
+  color: #333;
+  line-height: 1.6;
+}
+
+.empty-list-warning-message p {
+  margin: 0 0 10px 0;
+}
+
+.empty-list-warning-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  margin-bottom: 20px;
+}
+
+.warning-step {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding: 12px 15px;
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  border-radius: 12px;
+  border-left: 4px solid #ffd600;
+}
+
+.step-number {
+  background: #ffd600;
+  color: #22223a;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  font-size: 0.9rem;
+  flex-shrink: 0;
+}
+
+.step-text {
+  color: #444;
+  font-size: 1rem;
+  line-height: 1.4;
+}
+
+.empty-list-warning-footer {
+  background: #f8f9fa;
+  padding: 20px 25px;
+  display: flex;
+  gap: 15px;
+  justify-content: center;
+}
+
+.empty-list-add-btn {
+  background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  padding: 12px 25px;
+  font-weight: bold;
+  font-size: 1.1rem;
+  cursor: pointer;
+  box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);
+  transition: all 0.3s;
+  flex: 1;
+}
+
+.empty-list-add-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(40, 167, 69, 0.4);
+}
+
+.empty-list-close-btn {
+  background: linear-gradient(135deg, #6c757d 0%, #5a6268 100%);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  padding: 12px 25px;
+  font-weight: bold;
+  font-size: 1.1rem;
+  cursor: pointer;
+  box-shadow: 0 4px 15px rgba(108, 117, 125, 0.3);
+  transition: all 0.3s;
+  flex: 1;
+}
+
+.empty-list-close-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(108, 117, 125, 0.4);
+}
+
+@keyframes bounce {
+  0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+  40% { transform: translateY(-10px); }
+  60% { transform: translateY(-5px); }
+}
+
+@keyframes slideUp {
+  0% { 
+    transform: translateY(50px) scale(0.9); 
+    opacity: 0; 
+  }
+  100% { 
+    transform: translateY(0) scale(1); 
+    opacity: 1; 
+  }
+}
+
+@media (max-width: 600px) {
+  .empty-list-warning-content {
+    max-width: 95vw;
+    margin: 10px;
+  }
+  
+  .empty-list-warning-header {
+    padding: 15px 20px;
+  }
+  
+  .empty-list-warning-title {
+    font-size: 1.1rem;
+  }
+  
+  .empty-list-warning-body {
+    padding: 20px;
+  }
+  
+  .empty-list-warning-footer {
+    padding: 15px 20px;
+    flex-direction: column;
+  }
+  
+  .warning-step {
+    padding: 10px 12px;
+  }
+  
+  .step-text {
+    font-size: 0.9rem;
+  }
+}
+
 .prize-count {
   display: inline-flex;
   align-items: center;
@@ -1033,10 +1250,61 @@ footer {
   border-radius: 6px 6px 10px 10px;
 }
 .prize-count-num {
-  color: #ffd600;
-  font-size: 1.1em;
+  background: rgba(0,0,0,0.8);
+  color: #4caf50;
+  padding: 4px 8px;
+  border-radius: 6px;
   font-weight: bold;
-  margin-left: 2px;
+  font-size: 0.9em;
+  min-width: 30px;
+  text-align: center;
+  display: inline-block;
+  border: 2px solid currentColor;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+}
+
+.prize-count-num:hover {
+  transform: scale(1.1);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.4);
+}
+
+/* Trạng thái đủ người - màu đỏ */
+.prize-count-num.full {
+  color: #ff6b6b !important;
+  background: rgba(255,107,107,0.1);
+  animation: pulse-red 2s infinite;
+}
+
+/* Trạng thái gần đủ - màu cam */
+.prize-count-num.warning {
+  color: #ffa726 !important;
+  background: rgba(255,167,38,0.1);
+  animation: pulse-orange 2s infinite;
+}
+
+/* Trạng thái bình thường - màu xanh */
+.prize-count-num.normal {
+  color: #4caf50 !important;
+  background: rgba(76,175,80,0.1);
+}
+
+@keyframes pulse-red {
+  0%, 100% { 
+    box-shadow: 0 0 5px rgba(255,107,107,0.5);
+  }
+  50% { 
+    box-shadow: 0 0 20px rgba(255,107,107,0.8);
+  }
+}
+
+@keyframes pulse-orange {
+  0%, 100% { 
+    box-shadow: 0 0 5px rgba(255,167,38,0.5);
+  }
+  50% { 
+    box-shadow: 0 0 15px rgba(255,167,38,0.7);
+  }
 } 
 .prize-icon {
   display: inline-block;
@@ -1300,10 +1568,10 @@ body.result-active footer {
 } 
 body.hide-title-actions #titleColorPicker,
 body.hide-title-actions #edit-title-btn {
-  display: none !important;
+  display: inline-block !important;
 } 
 body.hide-title-actions .main-header .dot {
-  display: none !important;
+  display: inline-block !important;
 } 
 /* Theme Picker Modal */
 .theme-modal {
@@ -1397,7 +1665,7 @@ body.hide-title-actions .main-header .dot {
   font-size: 1.3rem;
   font-weight: bold;
   margin-left: 16px;
-  transition: color 0.2s;
+  transition: color 0.2s; /* Chuyển lại về 0.2s như cũ */
 }
 .theme-modal-close:hover {
   color: #c62828;
@@ -1457,7 +1725,7 @@ body.theme-white .draw-card { background: #fff; border-color: #e0e0e0; }
   100% { transform: scale(1); filter: brightness(1.2); }
 }
 .slot-pop {
-  animation: slotPop 0.5s cubic-bezier(.68,-0.55,.27,1.55);
+  animation: slotPop 0.5s cubic-bezier(.68,-0.55,.27,1.55); /* Chuyển lại về 0.5s như cũ */
   box-shadow: 0 0 16px 4px #ffd600, 0 0 0 4px #fff3;
   color: #ffd600 !important;
   background: none !important;
@@ -1483,7 +1751,7 @@ body.theme-white .draw-card { background: #fff; border-color: #e0e0e0; }
 } 
 /* Hiệu ứng nổi bật cho slot và tên người trúng */
 .lucky-highlight {
-  animation: luckyHighlight 1.2s cubic-bezier(.68,-0.55,.27,1.55) infinite alternate;
+  animation: luckyHighlight 1.2s cubic-bezier(.68,-0.55,.27,1.55) infinite alternate; /* Chuyển lại về 1.2s như cũ */
   box-shadow: 0 0 24px 8px #ffd600, 0 0 8px 2px #fff;
   filter: brightness(1.5);
   transform: scale(1.18);
@@ -1494,7 +1762,7 @@ body.theme-white .draw-card { background: #fff; border-color: #e0e0e0; }
   100% { filter: brightness(1.2); transform: scale(1.08); }
 }
 .lucky-blink {
-  animation: luckyBlink 0.5s steps(2, start) infinite;
+  animation: luckyBlink 0.5s steps(2, start) infinite; /* Chuyển lại về 0.5s như cũ */
 }
 @keyframes luckyBlink {
   0%, 100% { opacity: 1; }
@@ -1503,4 +1771,228 @@ body.theme-white .draw-card { background: #fff; border-color: #e0e0e0; }
 body.draw-active #theme-btn,
 body.result-active #theme-btn {
   display: none !important;
+} 
+.draw-mode .icon-edit {
+  display: none !important;
+} 
+.lucky-list-modal,
+.lucky-list-modal * {
+  pointer-events: auto !important;
+  opacity: 1 !important;
+  z-index: 2000 !important;
+} 
+/* Ẩn nút sửa tên và đổi màu ở các mode khác ngoài main-mode */
+body.draw-active .title-controls,
+body.result-active .title-controls {
+  display: none !important;
+}
+
+.title-controls {
+  display: inline-block;
+  margin-left: 12px;
+  vertical-align: middle;
+}
+
+.title-controls .dot {
+  margin-right: 8px;
+} 
+/* Multiple Winners Modal */
+.multiple-winners-modal {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 3000;
+  animation: fadeIn 0.3s;
+}
+
+.multiple-winners-modal.hidden {
+  display: none;
+}
+
+.multiple-winners-modal-content {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 20px;
+  min-width: 500px;
+  max-width: 90vw;
+  max-height: 80vh;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+  overflow: hidden;
+  animation: slideInUp 0.4s;
+  border: 3px solid #ffd600;
+}
+
+.multiple-winners-modal-header {
+  background: #ffd600;
+  color: #22223a;
+  font-weight: bold;
+  font-size: 1.5rem;
+  padding: 20px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
+}
+
+.multiple-winners-modal-close {
+  cursor: pointer;
+  font-size: 1.8rem;
+  font-weight: bold;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: background 0.2s;
+}
+
+.multiple-winners-modal-close:hover {
+  background: rgba(255,255,255,0.2);
+}
+
+.multiple-winners-modal-body {
+  padding: 24px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.multiple-winners-list {
+  display: grid;
+  gap: 12px;
+}
+
+.multiple-winner-item {
+  background: rgba(255,255,255,0.15);
+  border: 2px solid rgba(255,214,0,0.3);
+  border-radius: 12px;
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  backdrop-filter: blur(10px);
+  transition: all 0.3s;
+}
+
+.multiple-winner-item:hover {
+  background: rgba(255,255,255,0.25);
+  border-color: #ffd600;
+  transform: translateY(-2px);
+}
+
+.multiple-winner-info {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.multiple-winner-rank {
+  background: #ffd600;
+  color: #22223a;
+  font-weight: bold;
+  font-size: 1.2rem;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(255,214,0,0.3);
+}
+
+.multiple-winner-details {
+  color: #fff;
+}
+
+.multiple-winner-code {
+  font-size: 1.3rem;
+  font-weight: bold;
+  margin-bottom: 4px;
+  text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+}
+
+.multiple-winner-name {
+  font-size: 1rem;
+  opacity: 0.9;
+}
+
+.multiple-winners-modal-footer {
+  background: rgba(0,0,0,0.1);
+  padding: 20px 24px;
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+}
+
+.multiple-winners-modal-footer button {
+  padding: 14px 32px;
+  border: none;
+  border-radius: 10px;
+  font-weight: bold;
+  font-size: 1.1rem;
+  cursor: pointer;
+  transition: all 0.3s;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+}
+
+.multiple-winners-confirm-btn {
+  background: #ffd600;
+  color: #22223a;
+}
+
+.multiple-winners-confirm-btn:hover {
+  background: #ffed4a;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(255,214,0,0.4);
+}
+
+.multiple-winners-back-btn {
+  background: #6c757d;
+  color: #fff;
+}
+
+.multiple-winners-back-btn:hover {
+  background: #5a6268;
+  transform: translateY(-2px);
+}
+
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (max-width: 600px) {
+  .multiple-winners-modal-content {
+    min-width: 95vw;
+    margin: 20px;
+  }
+  
+  .multiple-winner-item {
+    padding: 12px 16px;
+  }
+  
+  .multiple-winner-rank {
+    width: 35px;
+    height: 35px;
+    font-size: 1rem;
+  }
+  
+  .multiple-winners-modal-footer {
+    flex-direction: column;
+    gap: 12px;
+  }
+} 
+.result-list-modal,
+.result-list-modal * {
+  pointer-events: auto !important;
+  opacity: 1 !important;
+  z-index: 2000 !important;
 } 
