@@ -966,13 +966,20 @@ function showResultScreen(pickedList, prizeObj) {
   const resultCards = resultMode.querySelector('.result-cards');
   resultCards.innerHTML = '';
   
-  // Hiển thị slot kết quả theo window.currentDrawCode6
+  // Hiển thị slot kết quả với priority: window.currentDrawCode6 > pickedList[0] > fallback
   let code6 = window.currentDrawCode6 || (pickedList && pickedList[0] && (pickedList[0].code6 || pickedList[0].code)) || '000000';
   
   // Đảm bảo code6 có đủ 6 ký tự
   if (code6 && code6.length < 6) {
     code6 = code6.padStart(6, '0');
   }
+  
+  console.log('🎯 showResultScreen code consistency:', {
+    windowCurrentDrawCode6: window.currentDrawCode6,
+    pickedListFirstCode: pickedList && pickedList[0] && (pickedList[0].code6 || pickedList[0].code),
+    finalCode6: code6,
+    pickedList: pickedList
+  });
   for (let i = 0; i < 6; i++) {
     const div = document.createElement('div');
     div.className = 'draw-card result-draw-card'; // Thêm class riêng cho result mode
@@ -1426,21 +1433,36 @@ async function saveWinnersToStorage() {
   
   // Xử lý batch winners nếu có
   if (window.currentBatchWinners && window.currentBatchWinners.length > 0) {
-    console.log('Saving batch winners:', window.currentBatchWinners.length);
+    console.log(`🏆 Saving ${window.currentBatchWinners.length} batch winners`);
+    console.log('currentBatchWinners:', window.currentBatchWinners);
     
-    window.currentBatchWinners.forEach(winner => {
+    let savedCount = 0;
+    window.currentBatchWinners.forEach((winner, index) => {
+      const rawCode = winner.code || winner.code6 || '';
+      const formattedCode = rawCode.padStart(6, '0');
+      
       const winnerData = {
-        code: winner.code || winner.code6 || '',
+        code: formattedCode,
         name: winner.name || '',
         playerId: winner.playerId || '',
         prize: currentPrize,
         timestamp: new Date().toISOString(),
-        datetime: new Date().toLocaleString('vi-VN')
+        datetime: new Date().toLocaleString('vi-VN'),
+        originalCode: winner.originalCode || rawCode
       };
       
+      console.log(`🔍 Saving batch winner ${index + 1}/${window.currentBatchWinners.length}:`, {
+        inputCode: rawCode,
+        formattedCode: formattedCode,
+        winnerData: winnerData
+      });
+      
       winners.push(winnerData);
-      console.log('Added winner:', winnerData);
+      savedCount++;
+      console.log(`✅ Added winner ${index + 1}: ${winnerData.name} (${winnerData.code})`);
     });
+    
+    console.log(`🏁 Batch save completed: ${savedCount}/${window.currentBatchWinners.length} winners saved`);
     
     // Clear batch winners sau khi lưu
     window.currentBatchWinners = null;
@@ -1449,14 +1471,24 @@ async function saveWinnersToStorage() {
     // Xử lý single winner
     console.log('Saving single winner');
     
+    const rawCode = window.currentDrawCode6 || '';
+    const formattedCode = rawCode.padStart(6, '0');
+    
     const winnerData = {
-      code: window.currentDrawCode6 || '',
+      code: formattedCode,
       name: window.currentDrawWinner?.name || '',
       playerId: window.currentDrawWinner?.playerId || '',
       prize: currentPrize,
       timestamp: new Date().toISOString(),
-      datetime: new Date().toLocaleString('vi-VN')
+      datetime: new Date().toLocaleString('vi-VN'),
+      originalCode: window.currentDrawWinner?.originalCode || rawCode
     };
+    
+    console.log('🔍 Saving single winner:', {
+      inputCode: rawCode,
+      formattedCode: formattedCode,
+      winnerData: winnerData
+    });
     
     winners.push(winnerData);
     console.log('Added single winner:', winnerData);
@@ -1477,8 +1509,9 @@ async function saveWinnersToStorage() {
   
   console.log('✅ Winners saved successfully. Total winners:', winners.length);
   
-  // Show notification
-  showNotification(`✅ Đã lưu người thắng cuộc (${winners.length} tổng cộng)`, 'success');
+  // Show notification với số lượng batch winners chính xác
+  const batchCount = window.currentBatchWinners ? window.currentBatchWinners.length : 1;
+  showNotification(`✅ Đã lưu ${batchCount} người thắng cuộc`, 'success');
 }
 
 // Sửa lại stopSlotSpinWithLucky: sau khi quay xong, chuyển sang màn hình kết quả
@@ -1513,14 +1546,33 @@ function stopSlotSpinWithLucky(code, name) {
           if (!/^[0-9]$/.test(val)) val = '';
           codeOnSlot += val;
         });
-        window.currentDrawCode6 = codeOnSlot;
-        window.currentDrawWinner = { code: codeOnSlot, name: name, code6: codeOnSlot, prize: getCurrentPrize() };
+        // Ensure code is properly formatted as 6 digits
+        const formattedCode = codeOnSlot.padStart(6, '0');
+        window.currentDrawCode6 = formattedCode;
+        window.currentDrawWinner = { 
+          code: formattedCode, 
+          name: name, 
+          code6: formattedCode, 
+          originalCode: code, // Keep original for reference
+          prize: getCurrentPrize() 
+        };
+        
+        console.log('🔍 Code display consistency check:', {
+          inputCode: code,
+          codeOnSlot: codeOnSlot,
+          formattedCode: formattedCode,
+          finalDrawCode6: window.currentDrawCode6
+        });
         console.log('Set window.currentDrawCode6:', window.currentDrawCode6);
         console.log('Set window.currentDrawWinner:', window.currentDrawWinner);
         playSound('result'); // Âm thanh công bố kết quả
         
         // Sử dụng toàn bộ winners nếu có quay hàng loạt
-        const winnersToShow = window.currentBatchWinners || [{ code6: codeOnSlot, name: name }];
+        const winnersToShow = window.currentBatchWinners || [{ 
+          code6: formattedCode, 
+          code: formattedCode,
+          name: name 
+        }];
         console.log('=== CALLING showResultScreen ===');
         console.log('winnersToShow:', winnersToShow);
         console.log('winnersToShow.length:', winnersToShow.length);
@@ -1880,9 +1932,18 @@ document.addEventListener('DOMContentLoaded', function() {
     multipleWinnersConfirm.onclick = function() {
       console.log('=== CONFIRM BUTTON CLICKED ===');
       console.log('window.currentBatchWinners:', window.currentBatchWinners);
-      // Sử dụng logic confirm từ resultConfirmBtn
-      const currentPrize = document.getElementById('multiple-winners-prize-title').textContent;
-      const prizeName = currentPrize.split(' - ')[0].replace('🎉 ', '').replace(' 🎉', '');
+      // Lấy tên prize từ localStorage thay vì DOM để tránh bị cắt
+      const prizes = JSON.parse(localStorage.getItem('prizes') || '[]');
+      const currentPrizeIdx = parseInt(localStorage.getItem('currentPrizeIdx') || '0', 10);
+      const currentPrize = prizes[currentPrizeIdx];
+      const prizeName = currentPrize?.name || 'Không xác định';
+      
+      console.log('🎯 Prize name extraction:', {
+        currentPrizeIdx: currentPrizeIdx,
+        currentPrize: currentPrize,
+        prizeName: prizeName,
+        fullPrizeName: currentPrize?.name
+      });
       
     let luckyCodes = JSON.parse(localStorage.getItem('luckyCodes') || '[]');
     let luckyNames = JSON.parse(localStorage.getItem('luckyNames') || '[]');
@@ -1890,21 +1951,37 @@ document.addEventListener('DOMContentLoaded', function() {
       
       // Xử lý tất cả winners từ currentBatchWinners
       if (window.currentBatchWinners && window.currentBatchWinners.length > 0) {
-        window.currentBatchWinners.forEach(winner => {
-          const code6 = winner.code;
-          const name = winner.name;
+        console.log(`🏆 Multiple winners confirm: Processing ${window.currentBatchWinners.length} winners`);
+        
+        let processedCount = 0;
+        window.currentBatchWinners.forEach((winner, index) => {
+          const code6 = winner.code || winner.code6 || '';
+          const name = winner.name || `User_${code6}` || 'Không có tên'; // Fallback tên nếu bị thiếu
           const playerId = winner.playerId || '';
           
+          console.log(`📝 Processing winner ${index + 1}/${window.currentBatchWinners.length}:`, {
+            winner: winner,
+            code: code6,
+            name: name,
+            playerId: playerId
+          });
+          
           // Lưu vào danh sách winners với timestamp
-          winners.push({ 
+          const winnerData = {
             code: code6, 
             name: name, 
             playerId: playerId,
             prize: prizeName,
             timestamp: new Date().toISOString(),
             datetime: new Date().toLocaleString('vi-VN')
-          });
+          };
+          
+          console.log(`💾 Saving winner ${index + 1}:`, winnerData);
+          winners.push(winnerData);
+          processedCount++;
         });
+        
+        console.log(`✅ Multiple winners processed: ${processedCount}/${window.currentBatchWinners.length} saved`);
         
         // Clear batch winners sau khi xử lý
         window.currentBatchWinners = null;
@@ -1917,14 +1994,15 @@ document.addEventListener('DOMContentLoaded', function() {
       
       console.log('Saved multiple winners:', winners.length, 'total winners');
       
-      // Cập nhật số người trúng thưởng
-      updateWinnerCount();
+      // Cập nhật số người trúng thưởng với tên prize chính xác
+      console.log('🔄 Updating winner count after batch confirm...');
+      updateWinnerCount(prizeName);
       
       // Kiểm tra và tự động chuyển giải nếu cần
       const autoSwitched = checkAndAutoSwitchPrize();
       
-      // Sử dụng function mới để lưu winners một cách nhất quán
-      saveWinnersToStorage();
+      // ❌ REMOVED: saveWinnersToStorage() - đã save manual ở trên rồi
+      // Tránh duplicate save gây ra duplicate winners
       
       // Clear tất cả intervals trước khi quay lại
       clearAllSlotIntervals();
@@ -2127,9 +2205,18 @@ if (drawBtn && lockBtn) {
     if (actualDrawCount === 1) {
       // Single draw - use new player-based logic
       let idx = Math.floor(Math.random() * luckyCodes.length);
-      luckyCode = (luckyCodes[idx] || '').padStart(6, '0');
+      const originalCode = luckyCodes[idx] || '';
+      luckyCode = originalCode.padStart(6, '0');
       luckyName = luckyNames[idx] || '';
       const selectedPlayerId = luckyPlayers[idx] || '';
+      
+      console.log('🎯 Single draw picked:', {
+        originalCode: originalCode,
+        formattedCode: luckyCode,
+        name: luckyName,
+        playerId: selectedPlayerId,
+        index: idx
+      });
       window.currentBatchWinners = null; // Clear batch winners
       
       // Loại bỏ tất cả mã của người chơi này
@@ -2159,41 +2246,81 @@ if (drawBtn && lockBtn) {
       console.log(`Người chơi ${selectedPlayerId} (${luckyName}) đã trúng. Đã loại bỏ ${codesToRemove.length} mã của người này.`);
       
     } else {
-      // Batch draw - new logic with player consideration
+      // Batch draw - fixed logic with proper player consideration
       const selectedWinners = [];
       const tempCodes = [...luckyCodes];
       const tempNames = [...luckyNames];
       const tempPlayers = [...luckyPlayers];
+      const selectedPlayerIds = new Set(); // Track selected players to avoid duplicates
       
-      for (let i = 0; i < actualDrawCount; i++) {
+      console.log(`🎯 Starting batch draw for ${actualDrawCount} winners`);
+      console.log(`📊 Available: ${tempCodes.length} codes, ${tempNames.length} names, ${tempPlayers.length} players`);
+      
+      let attempts = 0;
+      const maxAttempts = actualDrawCount * 10; // Prevent infinite loop
+      
+      while (selectedWinners.length < actualDrawCount && tempCodes.length > 0 && attempts < maxAttempts) {
+        attempts++;
         const idx = Math.floor(Math.random() * tempCodes.length);
-        const code = (tempCodes[idx] || '').padStart(6, '0');
+        const originalCode = tempCodes[idx] || '';
+        const code = originalCode.padStart(6, '0');
         const name = tempNames[idx] || '';
-        const playerId = tempPlayers[idx] || '';
+        const playerId = tempPlayers[idx] || `UNIQUE_${Date.now()}_${attempts}`;
         
-        selectedWinners.push({ code, name, playerId });
+        // Skip if this player is already selected
+        if (selectedPlayerIds.has(playerId)) {
+          console.log(`⏭️ Skipping duplicate player: ${playerId}`);
+          continue;
+        }
+        
+        console.log(`🎯 Batch draw ${selectedWinners.length + 1}/${actualDrawCount} picked:`, {
+          originalCode: originalCode,
+          formattedCode: code,
+          name: name,
+          playerId: playerId,
+          index: idx,
+          attempt: attempts
+        });
+        
+        selectedWinners.push({ 
+          code, 
+          code6: code,
+          originalCode: originalCode,
+          name, 
+          playerId 
+        });
+        
+        selectedPlayerIds.add(playerId);
         
         // Loại bỏ tất cả mã của người chơi này khỏi temp arrays
         const codesToRemove = [];
-        for (let j = 0; j < tempCodes.length; j++) {
+        for (let j = tempCodes.length - 1; j >= 0; j--) { // Iterate backwards
           if (tempPlayers[j] === playerId) {
             codesToRemove.push(j);
           }
         }
         
-        // Xóa từ cuối lên
-        for (let j = codesToRemove.length - 1; j >= 0; j--) {
-          const removeIdx = codesToRemove[j];
+        // Remove all codes of this player (backwards to maintain indices)
+        codesToRemove.forEach(removeIdx => {
           tempCodes.splice(removeIdx, 1);
           if (removeIdx < tempNames.length) tempNames.splice(removeIdx, 1);
           if (removeIdx < tempPlayers.length) tempPlayers.splice(removeIdx, 1);
-        }
+        });
+        
+        console.log(`📋 Removed ${codesToRemove.length} codes for player ${playerId}. Remaining: ${tempCodes.length} codes`);
       }
       
+      // Validation và logging kết quả
+      console.log(`🏁 Batch draw completed: ${selectedWinners.length}/${actualDrawCount} winners selected`);
       console.log('selectedWinners:', selectedWinners);
       
-              // Lưu danh sách winners vào global variable để sử dụng sau
-        window.currentBatchWinners = selectedWinners;
+      if (selectedWinners.length !== actualDrawCount) {
+        console.warn(`⚠️ WARNING: Expected ${actualDrawCount} winners, got ${selectedWinners.length}`);
+        console.warn('This may indicate insufficient unique players or data issues');
+      }
+      
+      // Lưu danh sách winners vào global variable để sử dụng sau
+      window.currentBatchWinners = selectedWinners;
         
         // Đảm bảo tất cả winners có đầy đủ thông tin
         window.currentBatchWinners.forEach(winner => {
@@ -3631,6 +3758,123 @@ window.runFullTest = function() {
   console.log('');
 };
 
+// === BATCH DRAW DEBUGGER ===
+window.debugBatchDraw = function() {
+  console.log('🎯 === BATCH DRAW DEBUGGER ===');
+  
+  const currentPrize = getCurrentPrizeInfo();
+  const drawLimit = currentPrize ? (currentPrize.drawLimitPerTurn || 1) : 1;
+  
+  console.log('🎮 Draw Settings:');
+  console.log(`  Current Prize: ${currentPrize?.name || 'N/A'}`);
+  console.log(`  Draw Limit Per Turn: ${drawLimit}`);
+  
+  console.log('📊 Current Batch State:');
+  console.log('  window.currentBatchWinners:', window.currentBatchWinners);
+  console.log('  Batch Winners Count:', window.currentBatchWinners?.length || 0);
+  
+  if (window.currentBatchWinners && window.currentBatchWinners.length > 0) {
+    console.log('🏆 Batch Winners Detail:');
+    window.currentBatchWinners.forEach((winner, i) => {
+      console.log(`  [${i+1}] ${winner.name || 'NO_NAME'} (${winner.code || 'NO_CODE'}) - Player: ${winner.playerId || 'NO_PLAYER'}`);
+    });
+  }
+  
+  const luckyCodes = JSON.parse(localStorage.getItem('luckyCodes') || '[]');
+  const luckyNames = JSON.parse(localStorage.getItem('luckyNames') || '[]');
+  const luckyPlayers = JSON.parse(localStorage.getItem('luckyPlayers') || '[]');
+  const winners = JSON.parse(localStorage.getItem('winners') || '[]');
+  
+  console.log('📋 Available Data:');
+  console.log(`  Lucky Codes: ${luckyCodes.length}`);
+  console.log(`  Lucky Names: ${luckyNames.length}`);
+  console.log(`  Lucky Players: ${luckyPlayers.length}`);
+  console.log(`  Total Winners: ${winners.length}`);
+  
+  // Check current prize winners
+  const currentPrizeWinners = winners.filter(w => w.prize === currentPrize?.name);
+  console.log(`  Current Prize Winners: ${currentPrizeWinners.length}/${currentPrize?.maxWinners || '∞'}`);
+  
+  // Check unique players
+  const uniquePlayers = [...new Set(luckyPlayers)];
+  console.log(`  Unique Players: ${uniquePlayers.length}`);
+  
+  if (drawLimit > uniquePlayers.length) {
+    console.warn(`⚠️ WARNING: Draw limit (${drawLimit}) > Unique players (${uniquePlayers.length})`);
+    console.warn('This may cause insufficient winners in batch draw');
+  }
+  
+  // Validate recent winners data
+  console.log('🔍 Recent Winners Validation:');
+  const recentWinners = winners.slice(-5);
+  recentWinners.forEach((winner, i) => {
+    const issues = [];
+    if (!winner.name || winner.name.trim() === '') issues.push('NO_NAME');
+    if (!winner.code || winner.code.trim() === '') issues.push('NO_CODE');
+    if (!winner.prize || winner.prize.trim() === '') issues.push('NO_PRIZE');
+    
+    console.log(`  [${i+1}] ${winner.name || 'EMPTY'} (${winner.code || 'EMPTY'}) - ${winner.prize || 'EMPTY'} ${issues.length > 0 ? '❌ ' + issues.join(', ') : '✅'}`);
+  });
+  
+  console.log('');
+};
+
+// Verify batch consistency after save
+window.verifyBatchSave = function() {
+  console.log('🔍 === BATCH SAVE VERIFICATION ===');
+  
+  const winners = JSON.parse(localStorage.getItem('winners') || '[]');
+  const currentPrize = getCurrentPrizeInfo();
+  const currentPrizeWinners = winners.filter(w => w.prize === currentPrize?.name);
+  
+  console.log('📊 Save Results:');
+  console.log(`  Total Winners: ${winners.length}`);
+  console.log(`  Current Prize Winners: ${currentPrizeWinners.length}`);
+  console.log(`  Max Winners for Prize: ${currentPrize?.maxWinners || 'Unlimited'}`);
+  
+  // Check winner count display
+  const countElements = document.querySelectorAll('.prize-count-num');
+  console.log('🖥️ UI Display:');
+  countElements.forEach((el, i) => {
+    console.log(`  Count Element ${i}: "${el.textContent}"`);
+  });
+  
+  console.log('');
+};
+
+// === NUMBER CONSISTENCY DEBUGGER ===
+window.debugNumberFlow = function() {
+  console.log('🔍 === NUMBER CONSISTENCY DEBUGGER ===');
+  
+  console.log('📊 Current State:');
+  console.log('  window.currentDrawCode6:', window.currentDrawCode6);
+  console.log('  window.currentDrawWinner:', window.currentDrawWinner);
+  console.log('  window.currentBatchWinners:', window.currentBatchWinners);
+  
+  const luckyCodes = JSON.parse(localStorage.getItem('luckyCodes') || '[]');
+  const winners = JSON.parse(localStorage.getItem('winners') || '[]');
+  
+  console.log('📋 Lucky Codes Format Check:');
+  luckyCodes.slice(0, 5).forEach((code, i) => {
+    console.log(`  [${i}] "${code}" → formatted: "${code.padStart(6, '0')}"`);
+  });
+  
+  console.log('🏆 Recent Winners Format Check:');
+  winners.slice(-3).forEach((winner, i) => {
+    console.log(`  [${i}] code: "${winner.code}", originalCode: "${winner.originalCode || 'N/A'}"`);
+  });
+  
+  // Check display elements
+  const resultCards = document.querySelectorAll('.result-cards .draw-card span');
+  if (resultCards.length > 0) {
+    let displayedCode = '';
+    resultCards.forEach(span => displayedCode += span.textContent);
+    console.log('🖥️ Currently Displayed Code:', displayedCode);
+  }
+  
+  console.log('');
+};
+
 window.quickHealthCheck = function() {
   console.log('⚡ === QUICK HEALTH CHECK ===');
   
@@ -3674,6 +3918,14 @@ window.quickHealthCheck = function() {
   console.log('🚨 DEBUGGING COMMANDS:');
   console.log('   debugDataIssue()           - Debug vấn đề không vào được draw mode');
   console.log('   fixDataAndEnter()          - Fix data và tự động vào draw mode');
+  console.log('   debugNumberFlow()          - Debug số được quay/hiển thị/lưu');
+  console.log('   debugBatchDraw()           - Debug batch draw logic và winners');
+  console.log('   verifyBatchSave()          - Verify winners after batch save');
+  console.log('🔍 BATCH VERIFICATION:');
+  console.log('   - Kiểm tra count display (X/Y format)');
+  console.log('   - Validate tên user không bị trống');
+  console.log('   - Validate tên prize không bị cắt đứt');
+  console.log('   - Đảm bảo số lượng lưu = số lượng pick');
 };
 
 // Debug function for data issues
