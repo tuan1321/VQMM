@@ -5,6 +5,217 @@ const $$ = (selector, parent = document) => parent.querySelectorAll(selector);
 const getLS = key => { try { return JSON.parse(localStorage.getItem(key)); } catch { return null; } };
 const setLS = (key, val) => localStorage.setItem(key, JSON.stringify(val));
 
+// JSON File Storage Helper Functions
+const JSON_STORAGE = {
+  dataFolder: 'vqmm-data',
+  
+  // Tạo folder data nếu chưa có
+  async ensureDataFolder() {
+    // Note: Browser không thể tạo folder, sẽ sử dụng filename với prefix
+    return Promise.resolve();
+  },
+  
+  // Đọc dữ liệu từ JSON file
+  async loadFromFile(filename, defaultValue = null) {
+    try {
+      // Sử dụng File API để đọc file
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.json';
+      
+      return new Promise((resolve) => {
+        input.onchange = (e) => {
+          const file = e.target.files[0];
+          if (!file) {
+            resolve(defaultValue);
+            return;
+          }
+          
+          const reader = new FileReader();
+          reader.onload = (event) => {
+            try {
+              const data = JSON.parse(event.target.result);
+              resolve(data);
+            } catch (error) {
+              console.error('Error parsing JSON file:', error);
+              resolve(defaultValue);
+            }
+          };
+          reader.readAsText(file);
+        };
+        
+        // Tự động mở file picker nếu cần
+        // input.click();
+        
+        // Trước tiên thử đọc từ localStorage để migration
+        const localData = getLS(filename);
+        if (localData !== null) {
+          resolve(localData);
+        } else {
+          resolve(defaultValue);
+        }
+      });
+    } catch (error) {
+      console.error('Error loading file:', error);
+      return defaultValue;
+    }
+  },
+  
+  // Lưu dữ liệu vào JSON file
+  async saveToFile(filename, data) {
+    try {
+      const jsonString = JSON.stringify(data, null, 2);
+      const blob = new Blob([jsonString], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${this.dataFolder}-${filename}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      
+      // Đồng thời lưu vào localStorage để backup
+      setLS(filename, data);
+      
+      console.log(`✅ Đã lưu ${filename} thành công`);
+      return true;
+    } catch (error) {
+      console.error('Error saving file:', error);
+      return false;
+    }
+  },
+  
+  // Import dữ liệu từ file
+  async importFromFile(filename) {
+    return new Promise((resolve) => {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.json';
+      
+      input.onchange = (e) => {
+        const file = e.target.files[0];
+        if (!file) {
+          resolve(null);
+          return;
+        }
+        
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          try {
+            const data = JSON.parse(event.target.result);
+            // Lưu vào localStorage để sử dụng ngay
+            setLS(filename, data);
+            resolve(data);
+          } catch (error) {
+            console.error('Error parsing imported JSON:', error);
+            resolve(null);
+          }
+        };
+        reader.readAsText(file);
+      };
+      
+      input.click();
+    });
+  },
+  
+  // Export tất cả dữ liệu
+  async exportAllData() {
+    const allData = {
+      luckyCodes: getLS('luckyCodes') || [],
+      luckyNames: getLS('luckyNames') || [],
+      luckyPlayers: getLS('luckyPlayers') || [],
+      prizes: getLS('prizes') || [],
+      winners: getLS('winners') || [],
+      currentPrizeIdx: getLS('currentPrizeIdx') || 0,
+      exportDate: new Date().toISOString(),
+      version: '1.0'
+    };
+    
+    return this.saveToFile('all-data', allData);
+  },
+  
+  // Import tất cả dữ liệu
+  async importAllData() {
+    const data = await this.importFromFile('all-data');
+    if (data) {
+      // Restore tất cả dữ liệu
+      if (data.luckyCodes) setLS('luckyCodes', data.luckyCodes);
+      if (data.luckyNames) setLS('luckyNames', data.luckyNames);
+      if (data.luckyPlayers) setLS('luckyPlayers', data.luckyPlayers);
+      if (data.prizes) setLS('prizes', data.prizes);
+      if (data.winners) setLS('winners', data.winners);
+      if (data.currentPrizeIdx !== undefined) setLS('currentPrizeIdx', data.currentPrizeIdx);
+      
+      console.log('✅ Đã import tất cả dữ liệu thành công');
+      return true;
+    }
+    return false;
+  }
+};
+
+// Enhanced storage functions với JSON file support
+const getStorageData = async (key, defaultValue = null) => {
+  // Trước tiên thử đọc từ localStorage
+  const localData = getLS(key);
+  return localData !== null ? localData : defaultValue;
+};
+
+const setStorageData = async (key, data) => {
+  // Lưu vào localStorage
+  setLS(key, data);
+  
+  // Tự động export ra file nếu cần
+  if (window.autoExportEnabled) {
+    await JSON_STORAGE.saveToFile(key, data);
+  }
+  
+  // Auto backup cho dữ liệu quan trọng
+  if (window.autoBackupEnabled && ['winners', 'prizes', 'luckyCodes'].includes(key)) {
+    setTimeout(() => {
+      JSON_STORAGE.saveToFile(`backup-${key}-${Date.now()}`, data).catch(console.error);
+    }, 1000);
+  }
+  
+  return true;
+};
+
+// Auto export settings
+window.autoExportEnabled = false; // Disabled by default to avoid too many file downloads
+window.autoBackupEnabled = false; // Disabled by default
+
+// Toggle functions để người dùng có thể bật/tắt
+window.toggleAutoExport = function() {
+  window.autoExportEnabled = !window.autoExportEnabled;
+  console.log('Auto export:', window.autoExportEnabled ? 'ENABLED' : 'DISABLED');
+  showNotification(`Auto export: ${window.autoExportEnabled ? 'BẬT' : 'TẮT'}`, 'info');
+  updateStorageStatus();
+};
+
+window.toggleAutoBackup = function() {
+  window.autoBackupEnabled = !window.autoBackupEnabled;
+  console.log('Auto backup:', window.autoBackupEnabled ? 'ENABLED' : 'DISABLED');  
+  showNotification(`Auto backup: ${window.autoBackupEnabled ? 'BẬT' : 'TẮT'}`, 'info');
+  updateStorageStatus();
+};
+
+// Update storage status indicator
+function updateStorageStatus() {
+  const autoExportStatus = document.getElementById('auto-export-status');
+  const autoBackupStatus = document.getElementById('auto-backup-status');
+  
+  if (autoExportStatus) {
+    autoExportStatus.style.display = window.autoExportEnabled ? 'inline' : 'none';
+    autoExportStatus.title = 'Auto export đang bật';
+  }
+  
+  if (autoBackupStatus) {
+    autoBackupStatus.style.display = window.autoBackupEnabled ? 'inline' : 'none';
+    autoBackupStatus.title = 'Auto backup đang bật';
+  }
+}
+
 // DOM cache
 const dom = {
   mainMode: $('.main-mode'),
@@ -287,11 +498,13 @@ eventTitleModal && eventTitleModal.addEventListener('click', function(e) {
     }
     if (!prizes.length) prizes = [...DEFAULT_PRIZES];
   }
-  function savePrizes() {
-    localStorage.setItem('prizes', JSON.stringify(prizes));
+  async function savePrizes() {
+    await setStorageData('prizes', prizes);
+    console.log('✅ Prizes saved to storage');
   }
-  function saveCurrentPrizeIdx() {
-    localStorage.setItem('currentPrizeIdx', currentPrizeIdx);
+  async function saveCurrentPrizeIdx() {
+    await setStorageData('currentPrizeIdx', currentPrizeIdx);
+    console.log('✅ Current prize index saved to storage');
   }
   function loadCurrentPrizeIdx() {
     const idx = parseInt(localStorage.getItem('currentPrizeIdx'), 10);
@@ -755,6 +968,11 @@ function showResultScreen(pickedList, prizeObj) {
   
   // Hiển thị slot kết quả theo window.currentDrawCode6
   let code6 = window.currentDrawCode6 || (pickedList && pickedList[0] && (pickedList[0].code6 || pickedList[0].code)) || '000000';
+  
+  // Đảm bảo code6 có đủ 6 ký tự
+  if (code6 && code6.length < 6) {
+    code6 = code6.padStart(6, '0');
+  }
   for (let i = 0; i < 6; i++) {
     const div = document.createElement('div');
     div.className = 'draw-card result-draw-card'; // Thêm class riêng cho result mode
@@ -769,6 +987,13 @@ function showResultScreen(pickedList, prizeObj) {
     console.log('=== MULTIPLE WINNERS DETECTED ===');
     console.log('Calling showMultipleWinnersModal with:', pickedList);
     
+    // Đảm bảo tất cả winners có đầy đủ thông tin
+    pickedList.forEach(winner => {
+      if (winner && !winner.code6) {
+        winner.code6 = winner.code || '';
+      }
+    });
+    
     // Ẩn result mode trước khi hiển thị modal
     resultMode.style.display = 'none';
     
@@ -782,6 +1007,11 @@ function showResultScreen(pickedList, prizeObj) {
     const winnerName = winner.name || '';
     const playerId = winner.playerId || '';
     winnerNamesDisplay = playerId ? `${winnerName} (${playerId})` : winnerName;
+    
+    // Đảm bảo single winner cũng có đầy đủ thông tin
+    if (winner && !winner.code6) {
+      winner.code6 = winner.code || '';
+    }
   }
   
   const winnerNameEl = document.getElementById('result-winner-name');
@@ -833,12 +1063,17 @@ function showMultipleWinnersModal(winners, prizeObj) {
     item.className = 'multiple-winner-item';
     const playerId = winner.playerId || '';
     const displayName = playerId ? `${winner.name || 'Không có tên'} (${playerId})` : (winner.name || 'Không có tên');
+    
+    // Đảm bảo winner có đầy đủ thông tin
+    const winnerCode = winner.code || winner.code6 || 'N/A';
+    const winnerName = winner.name || 'Không có tên';
+    
     item.innerHTML = `
       <div class="multiple-winner-info" style="background:linear-gradient(135deg,#2c3e50,#34495e);border:2px solid #ffd600;border-radius:15px;padding:12px;text-align:left;box-shadow:0 8px 24px rgba(0,0,0,0.3),0 0 20px #ffd60055;display:flex;align-items:center;gap:12px;">
         <div class="multiple-winner-rank" style="font-size:1.8rem;font-weight:bold;color:#ffd600;text-shadow:0 2px 8px #000a;min-width:40px;text-align:center;">${index + 1}</div>
         <div class="multiple-winner-details" style="flex:1;display:flex;align-items:center;gap:15px;">
-          <div class="multiple-winner-code" style="font-size:1.5rem;font-weight:bold;color:#fff;text-shadow:0 2px 8px #000a;letter-spacing:2px;min-width:110px;">${winner.code || winner.code6 || 'N/A'}</div>
-          <div class="multiple-winner-name" style="font-size:1.3rem;font-weight:bold;color:#ffd600;text-shadow:0 2px 8px #000a;background:linear-gradient(45deg,#ffd600,#ffed4e);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;flex:1;">${winner.name || 'Không có tên'}</div>
+          <div class="multiple-winner-code" style="font-size:1.5rem;font-weight:bold;color:#fff;text-shadow:0 2px 8px #000a;letter-spacing:2px;min-width:110px;">${winnerCode}</div>
+          <div class="multiple-winner-name" style="font-size:1.3rem;font-weight:bold;color:#ffd600;text-shadow:0 2px 8px #000a;background:linear-gradient(45deg,#ffd600,#ffed4e);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;flex:1;">${winnerName}</div>
         </div>
       </div>
     `;
@@ -881,69 +1116,11 @@ const resultConfirmBtn = document.querySelector('.result-confirm-btn');
 const resultBackBtn = document.querySelector('.result-back-btn');
 if (resultConfirmBtn) {
   resultConfirmBtn.onclick = function() {
-    let luckyCodes = JSON.parse(localStorage.getItem('luckyCodes') || '[]');
-    let luckyNames = JSON.parse(localStorage.getItem('luckyNames') || '[]');
-    let luckyPlayers = JSON.parse(localStorage.getItem('luckyPlayers') || '[]');
-    let prize = document.getElementById('result-prize-label').textContent || '';
-    let winners = JSON.parse(localStorage.getItem('winners') || '[]');
+    console.log('=== resultConfirmBtn clicked ===');
     
-    // Xử lý nhiều winners nếu có quay hàng loạt
-    if (window.currentBatchWinners && window.currentBatchWinners.length > 0) {
-      // Quay hàng loạt - xử lý tất cả winners
-      window.currentBatchWinners.forEach(winner => {
-        const code6 = winner.code;
-        const name = winner.name;
-        const playerId = winner.playerId || '';
-        
-        // Lưu vào danh sách winners với timestamp
-        winners.push({ 
-          code: code6, 
-          name: name, 
-          playerId: playerId,
-          prize: prize,
-          timestamp: new Date().toISOString(),
-          datetime: new Date().toLocaleString('vi-VN')
-        });
-      });
-      
-      // Clear batch winners sau khi xử lý
-      window.currentBatchWinners = null;
-    } else {
-      // Logic cũ cho 1 winner
-      const codeEls = document.querySelectorAll('.result-cards .draw-card span');
-      let code6 = '';
-      codeEls.forEach(el => { code6 += el.textContent; });
-    let name = document.getElementById('result-winner-name').textContent || '';
-      
-    // Tìm player ID của winner này
-    let playerId = '';
-    let idx = luckyCodes.findIndex(c => c.padStart(6, '0') === code6);
-    if (idx !== -1 && idx < luckyPlayers.length) {
-      playerId = luckyPlayers[idx] || '';
-    }
-      
-            // Lưu vào danh sách winners với timestamp
-        winners.push({ 
-          code: code6, 
-          name: name, 
-          playerId: playerId,
-          prize: prize,
-          timestamp: new Date().toISOString(),
-          datetime: new Date().toLocaleString('vi-VN')
-        });
-    }
+    // Sử dụng function mới để lưu winners một cách nhất quán
+    saveWinnersToStorage();
     
-          // Lưu thay đổi vào localStorage
-      localStorage.setItem('luckyCodes', JSON.stringify(luckyCodes));
-      localStorage.setItem('luckyNames', JSON.stringify(luckyNames));
-    localStorage.setItem('winners', JSON.stringify(winners));
-      
-    // Cập nhật số người đã đạt giải
-      updateWinnerCount();
-      
-      // Kiểm tra và tự động chuyển giải nếu cần
-      const autoSwitched = checkAndAutoSwitchPrize();
-      
     // Clear tất cả intervals trước khi quay lại
     clearAllSlotIntervals();
     isSpinning = false;
@@ -954,25 +1131,36 @@ if (resultConfirmBtn) {
       resultCards.innerHTML = '';
     }
     
-    // Quay lại trang draw-mode để bắt đầu quay tiếp
-    document.querySelector('.result-mode').style.display = 'none';
+    // Reset giao diện
     document.querySelector('.draw-mode').style.display = 'flex';
+    document.querySelector('.result-mode').style.display = 'none';
+    document.querySelector('.multiple-winners-modal').classList.add('hidden');
     drawBtn.style.display = '';
     document.body.classList.remove('result-active');
     document.body.classList.add('draw-active');
     document.querySelector('.draw-mode').classList.remove('drawing');
     updateDrawCardsWithPrizeIcon();
-      
-      if (autoSwitched) {
-        console.log('🔄 Prize auto-switched, display updated');
-      }
+    
+    // Reset các biến global
+    window.currentBatchWinners = null;
+    window.currentDrawCode6 = null;
+    window.currentDrawWinner = null;
+    
+    console.log('✅ Single winner confirmed and saved, returned to draw mode');
   };
 }
 if (resultBackBtn) {
   resultBackBtn.onclick = function() {
+    console.log('=== resultBackBtn clicked ===');
+    
     // Clear tất cả intervals trước khi quay lại
     clearAllSlotIntervals();
     isSpinning = false;
+    
+    // Reset các biến global
+    window.currentBatchWinners = null;
+    window.currentDrawCode6 = null;
+    window.currentDrawWinner = null;
     
     // Clear result cards trước khi quay lại draw mode
     const resultCards = document.querySelector('.result-cards');
@@ -980,22 +1168,29 @@ if (resultBackBtn) {
       resultCards.innerHTML = '';
     }
     
+    // Reset giao diện
     document.querySelector('.result-mode').style.display = 'none';
     document.querySelector('.draw-mode').style.display = 'flex';
+    document.querySelector('.multiple-winners-modal').classList.add('hidden');
     drawBtn.style.display = '';
     document.body.classList.remove('result-active');
     document.body.classList.add('draw-active');
     document.querySelector('.draw-mode').classList.remove('drawing');
     updateDrawCardsWithPrizeIcon(); // Reset các slot về icon giải thưởng
+    
     // Ẩn tên người trúng
     const nameDiv = document.getElementById('draw-winner-name');
     if (nameDiv) nameDiv.innerHTML = '';
+    
     // Ẩn nút chốt nếu đang hiện
     const lockBtn = document.querySelector('.lock-btn');
     if (lockBtn) lockBtn.style.display = 'none';
+    
     // Ẩn nút xác nhận/quay lại nếu có
     const btnWrap = document.getElementById('draw-confirm-btn-wrap');
     if (btnWrap) btnWrap.style.display = 'none';
+    
+    console.log('✅ Multiple winners cancelled, returned to draw mode');
   };
 }
 
@@ -1194,16 +1389,9 @@ function showConfirmButtons(code, name, prize) {
     clearAllSlotIntervals();
     isSpinning = false;
     
-    // Lưu vào winners
-    let winners = JSON.parse(localStorage.getItem('winners') || '[]');
-            winners.push({ 
-          code, 
-          name, 
-          prize,
-          timestamp: new Date().toISOString(),
-          datetime: new Date().toLocaleString('vi-VN')
-        });
-    localStorage.setItem('winners', JSON.stringify(winners));
+    // Lưu vào winners - sử dụng logic mới để xử lý cả single và batch
+    saveWinnersToStorage();
+    
     // Ẩn nút, reset giao diện về quay số
     btnWrap.style.display = 'none';
     document.querySelector('.draw-mode').classList.remove('drawing');
@@ -1227,6 +1415,70 @@ function showConfirmButtons(code, name, prize) {
     document.querySelector('.lock-btn').style.display = 'none';
     // KHÔNG hiện lại nút quay số ở đây
   };
+}
+
+// Function mới để lưu winners vào storage một cách nhất quán
+async function saveWinnersToStorage() {
+  console.log('=== saveWinnersToStorage called ===');
+  
+  let winners = await getStorageData('winners', []);
+  const currentPrize = getCurrentPrize();
+  
+  // Xử lý batch winners nếu có
+  if (window.currentBatchWinners && window.currentBatchWinners.length > 0) {
+    console.log('Saving batch winners:', window.currentBatchWinners.length);
+    
+    window.currentBatchWinners.forEach(winner => {
+      const winnerData = {
+        code: winner.code || winner.code6 || '',
+        name: winner.name || '',
+        playerId: winner.playerId || '',
+        prize: currentPrize,
+        timestamp: new Date().toISOString(),
+        datetime: new Date().toLocaleString('vi-VN')
+      };
+      
+      winners.push(winnerData);
+      console.log('Added winner:', winnerData);
+    });
+    
+    // Clear batch winners sau khi lưu
+    window.currentBatchWinners = null;
+    
+  } else {
+    // Xử lý single winner
+    console.log('Saving single winner');
+    
+    const winnerData = {
+      code: window.currentDrawCode6 || '',
+      name: window.currentDrawWinner?.name || '',
+      playerId: window.currentDrawWinner?.playerId || '',
+      prize: currentPrize,
+      timestamp: new Date().toISOString(),
+      datetime: new Date().toLocaleString('vi-VN')
+    };
+    
+    winners.push(winnerData);
+    console.log('Added single winner:', winnerData);
+  }
+  
+  // Lưu vào enhanced storage
+  await setStorageData('winners', winners);
+  
+  // Cập nhật số người đã đạt giải
+  updateWinnerCount();
+  
+  // Kiểm tra và tự động chuyển giải nếu cần
+  const autoSwitched = checkAndAutoSwitchPrize();
+  
+  if (autoSwitched) {
+    console.log('🔄 Prize auto-switched after saving winners');
+  }
+  
+  console.log('✅ Winners saved successfully. Total winners:', winners.length);
+  
+  // Show notification
+  showNotification(`✅ Đã lưu người thắng cuộc (${winners.length} tổng cộng)`, 'success');
 }
 
 // Sửa lại stopSlotSpinWithLucky: sau khi quay xong, chuyển sang màn hình kết quả
@@ -1481,7 +1733,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   }
 
-  function saveLuckyList() {
+  async function saveLuckyList() {
     if (!luckyCodeList || !luckyNameList) return;
     const codes = luckyCodeList.value.split(/\n|,/).map(s => s.trim()).filter(Boolean);
     const names = luckyNameList.value.split(/\n|,/).map(s => s.trim()).filter(Boolean);
@@ -1506,11 +1758,15 @@ document.addEventListener('DOMContentLoaded', function() {
       }
     }
     
-    localStorage.setItem('luckyCodes', JSON.stringify(codes));
-    localStorage.setItem('luckyNames', JSON.stringify(names));
-    localStorage.setItem('luckyPlayers', JSON.stringify(players));
+    // Sử dụng enhanced storage functions
+    await setStorageData('luckyCodes', codes);
+    await setStorageData('luckyNames', names);
+    await setStorageData('luckyPlayers', players);
     
-    console.log('Đã lưu:', codes.length, 'mã số,', names.length, 'tên, và', players.length, 'player IDs');
+    console.log('✅ Đã lưu:', codes.length, 'mã số,', names.length, 'tên, và', players.length, 'player IDs');
+    
+    // Show notification
+    showNotification(`✅ Đã lưu ${codes.length} mã số và ${names.length} tên`, 'success');
   }
 
   // Event listeners
@@ -1667,9 +1923,17 @@ document.addEventListener('DOMContentLoaded', function() {
       // Kiểm tra và tự động chuyển giải nếu cần
       const autoSwitched = checkAndAutoSwitchPrize();
       
+      // Sử dụng function mới để lưu winners một cách nhất quán
+      saveWinnersToStorage();
+      
       // Clear tất cả intervals trước khi quay lại
       clearAllSlotIntervals();
       isSpinning = false;
+      
+      // Reset các biến global
+      window.currentBatchWinners = null;
+      window.currentDrawCode6 = null;
+      window.currentDrawWinner = null;
       
       // Clear result cards trước khi quay lại draw mode
       const resultCards = document.querySelector('.result-cards');
@@ -1680,19 +1944,19 @@ document.addEventListener('DOMContentLoaded', function() {
       // Đóng modal và quay lại draw mode
       multipleWinnersModal.classList.add('hidden');
       multipleWinnersModal.style.display = 'none';
-    document.querySelector('.draw-mode').style.display = 'flex';
+      document.querySelector('.draw-mode').style.display = 'flex';
       document.querySelector('.draw-btn').style.display = '';
-    document.body.classList.add('draw-active');
+      document.body.classList.add('draw-active');
       document.body.classList.remove('result-active');
       
       // Reset draw mode
-    updateDrawCardsWithPrizeIcon();
+      updateDrawCardsWithPrizeIcon();
       
       if (autoSwitched) {
         console.log('🔄 Prize auto-switched after multiple winners confirm');
       }
       
-      console.log('Confirm process completed');
+      console.log('✅ Multiple winners confirmed and saved successfully');
     };
   } else {
     console.warn('multipleWinnersConfirm button not found!');
@@ -1703,9 +1967,15 @@ document.addEventListener('DOMContentLoaded', function() {
     console.log('Setting up back button event listener');
     multipleWinnersBack.onclick = function() {
       console.log('=== BACK BUTTON CLICKED ===');
+      
       // Clear tất cả intervals trước khi quay lại
       clearAllSlotIntervals();
       isSpinning = false;
+      
+      // Reset các biến global
+      window.currentBatchWinners = null;
+      window.currentDrawCode6 = null;
+      window.currentDrawWinner = null;
       
       // Clear result cards trước khi quay lại draw mode
       const resultCards = document.querySelector('.result-cards');
@@ -1716,13 +1986,15 @@ document.addEventListener('DOMContentLoaded', function() {
       // Không lưu, chỉ quay lại draw mode
       multipleWinnersModal.classList.add('hidden');
       multipleWinnersModal.style.display = 'none';
-    document.querySelector('.draw-mode').style.display = 'flex';
+      document.querySelector('.draw-mode').style.display = 'flex';
       document.querySelector('.draw-btn').style.display = '';
-    document.body.classList.add('draw-active');
+      document.body.classList.add('draw-active');
       document.body.classList.remove('result-active');
       
       // Reset draw mode
       updateDrawCardsWithPrizeIcon();
+      
+      console.log('✅ Multiple winners cancelled, returned to draw mode');
     };
   } else {
     console.warn('multipleWinnersBack button not found!');
@@ -1920,19 +2192,35 @@ if (drawBtn && lockBtn) {
       
       console.log('selectedWinners:', selectedWinners);
       
-      // Lưu danh sách winners vào global variable để sử dụng sau
-      window.currentBatchWinners = selectedWinners;
+              // Lưu danh sách winners vào global variable để sử dụng sau
+        window.currentBatchWinners = selectedWinners;
+        
+        // Đảm bảo tất cả winners có đầy đủ thông tin
+        window.currentBatchWinners.forEach(winner => {
+          if (!winner.code6) winner.code6 = winner.code || '';
+          if (!winner.code) winner.code = winner.code6 || '';
+          if (!winner.name) winner.name = '';
+          if (!winner.playerId) winner.playerId = '';
+        });
       
-      // Sử dụng mã đầu tiên cho animation và đảm bảo format đúng
-      const firstWinner = selectedWinners[0];
-      luckyCode = firstWinner.code;
-      luckyName = firstWinner.name;
+              // Sử dụng mã đầu tiên cho animation và đảm bảo format đúng
+        const firstWinner = selectedWinners[0];
+        luckyCode = firstWinner.code || firstWinner.code6 || '';
+        luckyName = firstWinner.name || '';
+        
+        // Đảm bảo luckyCode có đủ 6 ký tự
+        if (luckyCode && luckyCode.length < 6) {
+          luckyCode = luckyCode.padStart(6, '0');
+        }
       
-      // Đảm bảo tất cả winners có code6 property
-      window.currentBatchWinners = selectedWinners.map(winner => ({
-        ...winner,
-        code6: winner.code
-      }));
+                // Đảm bảo tất cả winners có code6 property và đầy đủ thông tin
+        window.currentBatchWinners = window.currentBatchWinners.map(winner => ({
+          ...winner,
+          code: winner.code || winner.code6 || '',
+          code6: winner.code || winner.code6 || '',
+          name: winner.name || '',
+          playerId: winner.playerId || ''
+        }));
       
       // Cập nhật danh sách gốc - loại bỏ tất cả mã của các người chơi đã trúng
       const winnersPlayerIds = selectedWinners.map(w => w.playerId);
@@ -3515,5 +3803,187 @@ window.adjustStopDelay = function(totalMs = 6000) {
 // Constants for easy adjustment
 window.SLOT_SPIN_INTERVAL = 100; // Default spin speed
 window.SLOT_STOP_TOTAL_DELAY = 6000; // Default stop delay
+
+// === JSON STORAGE EVENT LISTENERS ===
+document.addEventListener('DOMContentLoaded', function() {
+  // Initialize storage status
+  updateStorageStatus();
+  
+  // Add click handlers for status indicators
+  const autoExportStatus = document.getElementById('auto-export-status');
+  const autoBackupStatus = document.getElementById('auto-backup-status');
+  const storageMode = document.getElementById('storage-mode');
+  
+  if (autoExportStatus) {
+    autoExportStatus.addEventListener('click', window.toggleAutoExport);
+    autoExportStatus.style.cursor = 'pointer';
+  }
+  
+  if (autoBackupStatus) {
+    autoBackupStatus.addEventListener('click', window.toggleAutoBackup);
+    autoBackupStatus.style.cursor = 'pointer';
+  }
+  
+  if (storageMode) {
+    storageMode.addEventListener('click', function() {
+      console.log('📊 JSON Storage Commands:');
+      console.log('  toggleAutoExport() - Bật/tắt auto export');
+      console.log('  toggleAutoBackup() - Bật/tắt auto backup');
+      console.log('  JSON_STORAGE.exportAllData() - Export tất cả');
+      console.log('  JSON_STORAGE.importAllData() - Import tất cả');
+      showNotification('📊 Xem console để biết thêm lệnh JSON storage', 'info');
+    });
+    storageMode.style.cursor = 'pointer';
+    storageMode.title = 'Click để xem lệnh JSON storage';
+  }
+  
+  // Export Data Button
+  const exportBtn = document.getElementById('export-data-btn');
+  if (exportBtn) {
+    exportBtn.addEventListener('click', async function() {
+      try {
+        const success = await JSON_STORAGE.exportAllData();
+        if (success) {
+          showNotification('✅ Đã export dữ liệu thành công!', 'success');
+        } else {
+          showNotification('❌ Lỗi khi export dữ liệu', 'error');
+        }
+      } catch (error) {
+        console.error('Export error:', error);
+        showNotification('❌ Lỗi khi export dữ liệu', 'error');
+      }
+    });
+  }
+  
+  // Import Data Button
+  const importBtn = document.getElementById('import-data-btn');
+  if (importBtn) {
+    importBtn.addEventListener('click', async function() {
+      try {
+        const success = await JSON_STORAGE.importAllData();
+        if (success) {
+          showNotification('✅ Đã import dữ liệu thành công!', 'success');
+          // Reload page để cập nhật UI
+          setTimeout(() => {
+            window.location.reload();
+          }, 1000);
+        } else {
+          showNotification('❌ Không thể import dữ liệu', 'error');
+        }
+      } catch (error) {
+        console.error('Import error:', error);
+        showNotification('❌ Lỗi khi import dữ liệu', 'error');
+      }
+    });
+  }
+  
+  // Backup All Data Button
+  const backupBtn = document.getElementById('backup-data-btn');
+  if (backupBtn) {
+    backupBtn.addEventListener('click', async function() {
+      try {
+        // Backup individual files
+        const luckyCodes = getLS('luckyCodes');
+        const luckyNames = getLS('luckyNames');
+        const luckyPlayers = getLS('luckyPlayers');
+        const prizes = getLS('prizes');
+        const winners = getLS('winners');
+        
+        if (luckyCodes) await JSON_STORAGE.saveToFile('luckyCodes', luckyCodes);
+        if (luckyNames) await JSON_STORAGE.saveToFile('luckyNames', luckyNames);
+        if (luckyPlayers) await JSON_STORAGE.saveToFile('luckyPlayers', luckyPlayers);
+        if (prizes) await JSON_STORAGE.saveToFile('prizes', prizes);
+        if (winners) await JSON_STORAGE.saveToFile('winners', winners);
+        
+        // Backup all data
+        await JSON_STORAGE.exportAllData();
+        
+        showNotification('✅ Đã backup tất cả dữ liệu thành công!', 'success');
+      } catch (error) {
+        console.error('Backup error:', error);
+        showNotification('❌ Lỗi khi backup dữ liệu', 'error');
+      }
+    });
+  }
+});
+
+// Notification function
+function showNotification(message, type = 'info') {
+  // Remove existing notification
+  const existing = document.querySelector('.json-notification');
+  if (existing) {
+    existing.remove();
+  }
+  
+  // Create notification
+  const notification = document.createElement('div');
+  notification.className = 'json-notification';
+  notification.style.cssText = `
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    padding: 12px 24px;
+    border-radius: 8px;
+    color: white;
+    font-weight: bold;
+    z-index: 10000;
+    animation: slideIn 0.3s ease-out;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  `;
+  
+  // Set color based on type
+  switch (type) {
+    case 'success':
+      notification.style.backgroundColor = '#4CAF50';
+      break;
+    case 'error':
+      notification.style.backgroundColor = '#f44336';
+      break;
+    default:
+      notification.style.backgroundColor = '#2196F3';
+  }
+  
+  notification.textContent = message;
+  document.body.appendChild(notification);
+  
+  // Auto remove after 3 seconds
+  setTimeout(() => {
+    if (notification.parentNode) {
+      notification.style.animation = 'slideOut 0.3s ease-in';
+      setTimeout(() => {
+        if (notification.parentNode) {
+          notification.remove();
+        }
+      }, 300);
+    }
+  }, 3000);
+}
+
+// Add CSS for notification animations
+const notificationStyles = document.createElement('style');
+notificationStyles.textContent = `
+  @keyframes slideIn {
+    from {
+      transform: translateX(100%);
+      opacity: 0;
+    }
+    to {
+      transform: translateX(0);
+      opacity: 1;
+    }
+  }
+  
+  @keyframes slideOut {
+    from {
+      transform: translateX(0);
+      opacity: 1;
+    }
+    to {
+      transform: translateX(100%);
+      opacity: 0;
+    }
+  }
+`;
+document.head.appendChild(notificationStyles);
 
 // === QUICK DEMO DATA FOR WINNER COUNT ===
